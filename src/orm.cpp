@@ -1,5 +1,6 @@
 #include "orm.h"
 #include "postgresql.h"
+#include <chrono>
 
 
 
@@ -27,6 +28,10 @@ string Column::to_string() const
         return std::to_string(*(float*)point_var);
     else if(type_c == typeid(double).hash_code())
         return std::to_string(*(double*)point_var);
+    else if(type_c == typeid(chrono::time_point<std::chrono::system_clock>).hash_code()){
+        std::time_t tp= chrono::system_clock::to_time_t(*(chrono::time_point<std::chrono::system_clock>*)point_var);
+        return std::asctime(std::gmtime(&tp));
+    }
 
     throw_with_nested(runtime_error("Column::to_string: type not implemented in Column "+this->name));
 }
@@ -36,7 +41,7 @@ string getTypeDB(const type_info &ti){
         return "text";
     else if(ti == typeid(int))
         return "int";
-    else if(ti == typeid(long))
+    else if(ti == typeid(long) || ti==typeid(unsigned long))
         return "bigint";
     else if(ti == typeid(short))
         return "smallint";
@@ -46,6 +51,8 @@ string getTypeDB(const type_info &ti){
         return "float";
     else if(ti == typeid(double))
         return "float";
+    else if(ti == typeid(chrono::time_point<std::chrono::system_clock>))
+        return "TIMESTAMP";
 
     throw_with_nested(runtime_error("getTypeDB: type not implemented"));
 }

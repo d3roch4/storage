@@ -14,7 +14,7 @@ public:
     static shared_ptr<PostgreSQL> getInstance(string connection="");
 
     template<class type>
-    void create(type& bean){
+    void create(const type& bean){
         if( ! Table<type>::created ){
             Table<type>::created = true;
             const string& sql = Table<type>::sql_create;
@@ -34,7 +34,6 @@ public:
 
     template<class type>
     void insert(type& bean){
-        create(bean);
         Table<type>* table = (Table<type>*) &bean;
         pqxx::work txn(connection);
         txn.exec(getSqlInsert(table->table_name, table->columns));

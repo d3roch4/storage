@@ -65,6 +65,9 @@ struct Table
 
 private:
     void rebuild_sqls(){
+        if(created)
+            return;
+
         vector<Column> vecIndex;
         sql_create = "CREATE TABLE IF NOT EXISTS "+table_name+"(\n";
         for(int i=0; i<columns.size(); i++){
@@ -78,7 +81,7 @@ private:
         }
         sql_create += "\n);\n";
         for(Column& col: vecIndex)
-            sql_create += "CREATE INDEX idx_"+col.name+" ON "+table_name+'('+col.name+");\n";
+            sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col.name+" ON "+table_name+'('+col.name+");\n";
     }
 };
 
