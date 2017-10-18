@@ -23,12 +23,15 @@ void PostgreSQL::setValueColumn(Column& col, const pqxx::tuple& r)
         col.setValue(r.at(r.column_number(col.name)).as<short>());
     else if(col.type_c == typeid(long).hash_code())
         col.setValue(r.at(r.column_number(col.name)).as<long>());
+    else if(col.type_c == typeid(unsigned long).hash_code())
+        col.setValue(r.at(r.column_number(col.name)).as<unsigned long>());
     else if(col.type_c == typeid(string).hash_code())
         col.setValue(r.at(r.column_number(col.name)).as<string>());
     else if(col.type_c == typeid(float).hash_code())
         col.setValue(r.at(r.column_number(col.name)).as<float>());
     else if(col.type_c == typeid(double).hash_code())
         col.setValue(r.at(r.column_number(col.name)).as<double>());
-
+    else
+        throw_with_nested(runtime_error("PostgreSQL::setValueColumn: type unknow for Column "+col.name));
 }
 

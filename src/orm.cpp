@@ -20,6 +20,8 @@ string Column::to_string() const
         return std::to_string(*(int*)point_var);
     else if(type_c == typeid(long).hash_code())
         return std::to_string(*(long*)point_var);
+    else if(type_c == typeid(unsigned long).hash_code())
+        return std::to_string(*(unsigned long*)point_var);
     else if(type_c == typeid(short).hash_code())
         return std::to_string(*(short*)point_var);
     else if(type_c == typeid(bool).hash_code())
@@ -55,4 +57,11 @@ string getTypeDB(const type_info &ti){
         return "TIMESTAMP";
 
     throw_with_nested(runtime_error("getTypeDB: type not implemented"));
+}
+
+string tolower_str(string&& str){
+    for(int i=0; i<str.size(); i++)
+        str[i] = tolower(str[i]);
+
+    return str;
 }

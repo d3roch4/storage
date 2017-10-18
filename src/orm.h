@@ -5,6 +5,7 @@
 #include <vector>
 #include <typeinfo>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 
@@ -41,6 +42,8 @@ struct Column
 
  string getTypeDB(const type_info& ti);
 
+ string tolower_str(string&& str);
+
 template<class type>
 struct Table
 {
@@ -50,7 +53,7 @@ struct Table
     static string sql_create;
     static bool created;
 
-    Table(const string& table = typeid(type).name()+1){
+    Table(const string& table = tolower_str(string(typeid(type).name()+1)) ){
         table_name = table;
     }
 
