@@ -35,6 +35,7 @@ struct iColumn
 
     virtual string to_string() const = 0;
     virtual void setValue(const char* value) = 0;
+    virtual bool isNull() const = 0;
 };
 
 template<class type>
@@ -50,10 +51,13 @@ struct Column : iColumn
         return std::to_string(value);
     }
 
-    void setValue(const char* str)
-    {
+    void setValue(const char* str){
         stringstream ss(str);
         ss >> value;
+    }
+
+    bool isNull() const{
+        return value==0;
     }
 };
 
@@ -71,6 +75,9 @@ struct Column<string> : iColumn
     }
     void setValue(const char* str){
         value = str;
+    }    
+    bool isNull() const{
+        return value.empty();
     }
 };
 
@@ -93,6 +100,9 @@ struct Column<chrono::time_point<std::chrono::system_clock>> : iColumn
         ss >> std::get_time(&tm, "%Y-%m-%d %H-%M-%S"); // or just %T in this case
         std::time_t time = mktime(&tm);
         value = chrono::system_clock::from_time_t(time);
+    }
+    bool isNull() const {
+        return value==chrono::time_point<std::chrono::system_clock>{};
     }
 };
 
