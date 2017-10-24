@@ -153,19 +153,4 @@ template<class type>
 string Table<type>::table_name;
 
 
-template<class type_backend>
-class Persistence
-{
-    type_backend backend;
-public:
-    Persistence(string connection) :
-        backend{connection} {
-    }
-
-    template<class TypeRet, class TypeId>
-    shared_ptr<TypeRet> find(TypeId id){
-        return backend.find<TypeRet>(id);
-    }
-};
-
 #endif // ORM_H
