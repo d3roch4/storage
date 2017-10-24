@@ -2,13 +2,15 @@
 #define POSTGRESQL_H
 
 #include "backend.h"
-#include <pqxx/pqxx>
+#include <postgresql/libpq-fe.h>
 #include <vector>
 #include <type_traits>
 
+void verifyResult(PGresult* res, PGconn *conn);
+
 class PostgreSQL : Backend
 {
-    pqxx::connection connection;
+    PGconn     *conn;
 public:
 
     static shared_ptr<PostgreSQL> getInstance(string connection="");
@@ -18,42 +20,44 @@ public:
         const type obj;
         Table<type>* table = (Table<type>*) &obj;
         const string& sql = Table<type>::sql_create(table->columns);
-        pqxx::work txn(connection);
-        pqxx::result r = txn.exec(sql);
-        txn.commit();
+        PGresult* res = PQexec(conn, sql.c_str());
+        verifyResult(res, conn);
+        PQclear(res);
+
     }
 
     template<class type>
     void drop(){
         const type obj;
         string sql = "DROP TABLE IF EXISTS "+Table<type>::table_name;
-        pqxx::work txn(connection);
-        pqxx::result r = txn.exec(sql);
-        txn.commit();
+        PGresult* res = PQexec(conn, sql.c_str());
+        verifyResult(res, conn);
+        PQclear(res);
     }
 
     template<class type>
     void remove(type& bean){
         Table<type>* table = (Table<type>*) &bean;
-        pqxx::work txn(connection);
-        txn.exec("delete from "+table->table_name+" where "+table->id->name+'='+table->id->to_string());
-        txn.commit();
+        string sql = "delete from "+table->table_name+" where "+table->id->name+'='+table->id->to_string();
+        PGresult* res = PQexec(conn, sql.c_str());
+        verifyResult(res, conn);
+        PQclear(res);
     }
 
     template<class type>
     void insert(type& bean){
         Table<type>* table = (Table<type>*) &bean;
-        pqxx::work txn(connection);
-        txn.exec(getSqlInsert(table->table_name, table->columns));
-        txn.commit();
+        PGresult* res = PQexec(conn, getSqlInsert(table->table_name, table->columns).c_str());
+        verifyResult(res, conn);
+        PQclear(res);
     }
 
     template<class type, class TypeId>
     void update(type& bean, TypeId id){
         Table<type>* table = (Table<type>*) &bean;
-        pqxx::work txn(connection);
-        txn.exec(getSqlUpdate(table->table_name, table->columns)+" where "+table->id->name+'='+to_string(id));
-        txn.commit();
+        PGresult* res = PQexec(conn, (getSqlUpdate(table->table_name, table->columns)+" where "+table->id->name+'='+to_string(id)).c_str());
+        verifyResult(res, conn);
+        PQclear(res);
     }
 
 
@@ -62,19 +66,23 @@ public:
     {
         typedef typename TypeRet:: value_type TypeBean;
         static_assert(std::is_base_of<Table<TypeBean>, TypeBean>::value, "TypeRet is not a list<bean> valid");
-        pqxx::work txn(connection);
         TypeRet ret;
 
         Table<TypeBean>* table;
-        pqxx::result r = txn.exec("select * from "+Table<TypeBean>::table_name+" where "+where);
-        for(const auto& row: r){
+        string sql = "select * from "+Table<TypeBean>::table_name+" where "+where;
+        PGresult* res = PQexec(conn, sql.c_str());
+        verifyResult(res, conn);
+
+        int rows = PQntuples(res);
+        for(int i=0; i<rows; i++) {
             TypeBean obj;
             table = (Table<TypeBean>*) &obj ;
             for(auto& col: table->columns){
-                col->setValue(row.at(r.column_number(col->name)).c_str());
+                col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
             }
             ret.emplace_back(obj);
         }
+        PQclear(res);
         return ret;
     }
 
@@ -90,19 +98,24 @@ public:
     TypeRet find(string where)
     {
         static_assert(std::is_base_of<Table<TypeRet>, TypeRet>::value, "TypeRet is not a bean valid");
-        pqxx::work txn(connection);
         TypeRet ret;
         Table<TypeRet>* table = (Table<TypeRet>*) &ret ;
 
-        pqxx::result r = txn.exec("select * from "+table->table_name+" where "+where);
-        for(const auto& row: r){
+        string sql = "select * from "+table->table_name+" where "+where;
+        PGresult* res = PQexec(conn, sql.c_str());
+        verifyResult(res, conn);
+
+        int rows = PQntuples(res);
+        for(int i=0; i<rows; i++) {
             for(auto& col: table->columns){
-                col->setValue(row.at(r.column_number(col->name)).c_str());
+                col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
             }
         }
+        PQclear(res);
         return ret;
     }
 
+    ~PostgreSQL();
 private:
     static shared_ptr<PostgreSQL> instance;
     PostgreSQL(string connection);
