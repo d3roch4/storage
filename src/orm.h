@@ -121,6 +121,12 @@ struct Table
         table_name = table;
     }
 
+    Table(const Table& t){
+        this->columns = t.columns;
+        this->id = id;
+        this->table_name = table_name;
+    }
+
     template<class tVar>
     void column(tVar& var, string name, PropertyColumn prop=PropertyColumn::Data, string type_db = getTypeDB(typeid(tVar)) ){
         columns.emplace_back(new Column<tVar>(var));

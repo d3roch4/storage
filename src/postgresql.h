@@ -55,7 +55,8 @@ public:
     template<class type, class TypeId>
     void update(type& bean, TypeId id){
         Table<type>* table = (Table<type>*) &bean;
-        PGresult* res = PQexec(conn, (getSqlUpdate(table->table_name, table->columns)+" where "+table->id->name+'='+to_string(id)).c_str());
+        const string& sql = (getSqlUpdate(table->table_name, table->columns)+" where "+table->id->name+'='+to_string(id));
+        PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
         PQclear(res);
     }
