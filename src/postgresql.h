@@ -19,7 +19,7 @@ public:
     void create(){
         const type obj;
         Table<type>* table = (Table<type>*) &obj;
-        const string& sql = Table<type>::sql_create(table->columns);
+        const string& sql = table->sql_create(table->columns);
         PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
         PQclear(res);
@@ -38,7 +38,7 @@ public:
     template<class type>
     void remove(type& bean){
         Table<type>* table = (Table<type>*) &bean;
-        string sql = "delete from "+table->table_name+" where "+table->id->name+'='+table->id->to_string();
+        string sql = "delete from "+table->table_name+" where "+getWherePK(table);
         PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
         PQclear(res);
@@ -47,15 +47,24 @@ public:
     template<class type>
     void insert(type& bean){
         Table<type>* table = (Table<type>*) &bean;
-        PGresult* res = PQexec(conn, getSqlInsert(table->table_name, table->columns).c_str());
+        const string& sql = getSqlInsert(table) + " RETURNING "+getListPK(table);
+        PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
+
+        for(int i=0; i<PQntuples(res); i++) {
+            for(auto& col: table->columns){
+                if(col->prop == PrimaryKey)
+                    col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
+            }
+        }
+
         PQclear(res);
     }
 
-    template<class type, class TypeId>
-    void update(type& bean, TypeId id){
+    template<class type>
+    void update(type& bean, const string& where){
         Table<type>* table = (Table<type>*) &bean;
-        const string& sql = (getSqlUpdate(table->table_name, table->columns)+" where "+table->id->name+'='+to_string(id));
+        const string& sql = (getSqlUpdate(table->table_name, table->columns)+" where "+where);
         PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
         PQclear(res);
@@ -87,13 +96,6 @@ public:
         return ret;
     }
 
-    template<class TypeRet, class TypeParam>
-    TypeRet find(TypeParam param)
-    {
-        TypeRet ret;
-        Table<TypeRet>* table = (Table<TypeRet>*) &ret;
-        return find<TypeRet>(table->id->name+'='+to_string(param));
-    }
 
     template<class TypeRet>
     TypeRet find(string where)
@@ -103,11 +105,11 @@ public:
         Table<TypeRet>* table = (Table<TypeRet>*) &ret ;
 
         string sql = "select * from "+table->table_name+" where "+where;
-        PGresult* res = PQexec(conn, sql.c_str());
+        const char* cs = sql.c_str();
+        PGresult* res = PQexec(conn, cs);
         verifyResult(res, conn);
 
-        int rows = PQntuples(res);
-        for(int i=0; i<rows; i++) {
+        for(int i=0; i<PQntuples(res); i++) {
             for(auto& col: table->columns){
                 col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
             }

@@ -1,51 +1,67 @@
 #include "postgresql.h"
+#include <list>
 
 class Pessoa : private Table<Pessoa>
 {
 public:
-    int id;
+    int id=0;
+    int id2=0;
     string nome;
     int idade;
     chrono::time_point<chrono::system_clock> data;
     Pessoa() {
-        column(id, "id", PrimaryKey);
+        column(id, "id", PrimaryKey, "SERIAL");
+        column(id2, "id2", PrimaryKey, "SERIAL");
         column(nome, "nome");
         column(idade, "idade");
         column(data, "data");
     }
+    ~Pessoa(){
+
+    }
 };
 
 
-template<typename T>
-T func(string){ return T{}; }
+auto persist = PostgreSQL::getInstance("dbname=printnow user=postgres password=postgres");
+list<Pessoa> q;
 
+void func(Pessoa& copia){
+    q.emplace_back(copia);
+}
 
-
-int main()
-{
-    auto i = func<vector<Pessoa>>(string{});
-
-    auto persist = PostgreSQL::getInstance("dbname=printnow user=postgres password=postgres");
-    persist->drop<Pessoa>();
-    persist->create<Pessoa>();
-
+void insert(){
     Pessoa cara;
-    cara.id=2;
+    cara.id2=56;
     cara.nome="Fulano";
     cara.idade=45;
     cara.data = chrono::system_clock::now();
     persist->insert(cara);
+    cout << "inserted with id: " << cara.id << " id2: "<<cara.id2 << endl;
 
-    Pessoa&& p = persist->find<Pessoa>(2);
+    func(cara);
+
+    Pessoa& outra = q.back();
+    outra.id=5;
+}
+
+int main()
+{
+    persist->drop<Pessoa>();
+    persist->create<Pessoa>();
+
+    insert();
+    Pessoa& copia = q.back();
+
+    Pessoa&& p = persist->find<Pessoa>("id="+to_string(2));
     cout << "Hello " << p.nome << ", idade: " << p.idade << endl;
 
-    cara.nome = "Cicrano";
-    cara.idade = 30;
-    persist->update(cara, 2);
+    copia.nome = "Cicrano";
+    copia.idade = 30;
+    persist->update(copia, "id="+to_string(1));
 
     vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>("id > 0");
     for(Pessoa& pessoa: list)
-        cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).to_string() << endl;
+        cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
 
     persist->remove(p);
     persist->drop<Pessoa>();
