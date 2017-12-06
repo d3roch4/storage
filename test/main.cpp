@@ -1,7 +1,7 @@
 #include "postgresql.h"
 #include <list>
 
-class Pessoa : private Table<Pessoa>
+class Pessoa : private Entity<Pessoa>
 {
 public:
     int id=0;
@@ -46,20 +46,21 @@ void insert(){
 
 int main()
 {
+    cout << where(Condition{"col1"} > 87, AND, Condition{"col2"} % "abacate") << endl;
     persist->drop<Pessoa>();
     persist->create<Pessoa>();
 
     insert();
     Pessoa& copia = q.back();
 
-    Pessoa&& p = persist->find<Pessoa>("id="+to_string(2));
+    Pessoa&& p = persist->find<Pessoa>(where(condition("id", EQUAL, "1" )));
     cout << "Hello " << p.nome << ", idade: " << p.idade << endl;
 
     copia.nome = "Cicrano";
     copia.idade = 30;
     persist->update(copia, "id="+to_string(1));
 
-    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>("id > 0");
+    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, "2") ));
     for(Pessoa& pessoa: list)
         cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
 

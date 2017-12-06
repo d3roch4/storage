@@ -18,6 +18,8 @@ string getTypeDB(const type_info& ti);
 
 string tolower_str(string&& str);
 
+const char* remove_prefix_name(const char* str);
+
 enum PropertyColumn
 {
     NotNull,
@@ -38,6 +40,12 @@ struct iColumn
         this->name = name;
         this->type_db = type_db;
         this->prop = prop;
+    }
+
+    template<typename type>
+    void getValue(type&& value)
+    {
+        value = *(type*)this->value;
     }
 
     virtual string getValue() const = 0;
@@ -167,50 +175,50 @@ struct ForeignKey{
 };
 
 template<class type>
-struct Table
+struct Entity
 {
-    static string table_name;
-    vector<unique_ptr<iColumn>> columns;  //  coluna: name, type
-    vector<ForeignKey> vecFK;
+    static string _entity_name;
+    vector<unique_ptr<iColumn>> _columns;  //  coluna: name, type
+    vector<ForeignKey> _vecFK;
 
-    Table(const string& table = tolower_str(string(typeid(type).name()+1)) ){
-        table_name = table;
+    Entity(const string& table = tolower_str(string( remove_prefix_name(typeid(type).name()) )) ){
+        _entity_name = table;
     }
 
-    Table(Table&& hrs){}
-    Table(const Table& hrs){
+    Entity(Entity&& hrs){}
+    Entity(const Entity& hrs){
         type* objThis = (type*)this;
         type * objHrs = (type*)&hrs;
 
-        for(auto&& col: hrs.columns){
+        for(auto&& col: hrs._columns){
             uintptr_t pcol = reinterpret_cast<uintptr_t>(col->value);
             uintptr_t phrs = reinterpret_cast<uintptr_t>(objHrs);
             uintptr_t pthis = reinterpret_cast<uintptr_t>(objThis);
             void* pvalue = reinterpret_cast<void*>((pcol-phrs)+pthis);
 
-            this->columns.emplace_back(col->copy());
-            auto&& copy = columns.back();
+            this->_columns.emplace_back(col->copy());
+            auto&& copy = _columns.back();
             copy->value = pvalue;
         }
 
     }
-    void operator =(const Table& hrs){}
+    void operator =(const Entity& hrs){}
 
     template<class tVar>
     iColumn* column(tVar& var, string name, PropertyColumn prop=Data, string type_db = getTypeDB(typeid(tVar)) ){
-        columns.emplace_back(new Column<tVar>(var));
-        auto&& col = columns.back();
+        _columns.emplace_back(new Column<tVar>(var));
+        auto&& col = _columns.back();
         col->setProperties(name, type_db, prop);
         return col.get();
     }
 
     void foreignKey(iColumn* column, string reference){
-        vecFK.emplace_back(ForeignKey{column, reference});
+        _vecFK.emplace_back(ForeignKey{column, reference});
     }
 
     string sql_create(vector<unique_ptr<iColumn>>& columns){
         short qtdPK=0;
-        string sql_create = "CREATE TABLE IF NOT EXISTS "+table_name+"(\n";
+        string sql_create = "CREATE TABLE IF NOT EXISTS "+_entity_name+"(\n";
         for(int i=0; i<columns.size(); i++){
             iColumn* col = columns[i].get();
             sql_create += col->name +' '+col->type_db;
@@ -221,7 +229,7 @@ struct Table
                 qtdPK++;
         }
         if(qtdPK){
-            sql_create += ", CONSTRAINT PK_"+table_name+" PRIMARY KEY (";
+            sql_create += ", CONSTRAINT PK_"+_entity_name+" PRIMARY KEY (";
             for(int i=0; i<columns.size(); i++){
                 iColumn* col = columns[i].get();
                 if(col->prop == PrimaryKey){
@@ -232,22 +240,22 @@ struct Table
             }
             sql_create += ")\n";
         }
-        if(vecFK.size()){
-            for(int i=0; i<vecFK.size(); i++){
-                sql_create += ", CONSTRAINT FK_"+vecFK[i].column->name+table_name+
-                    " FOREIGN KEY ("+vecFK[i].column->name+") REFERENCES "+vecFK[i].reference;
+        if(_vecFK.size()){
+            for(int i=0; i<_vecFK.size(); i++){
+                sql_create += ", CONSTRAINT FK_"+_vecFK[i].column->name+_entity_name+
+                    " FOREIGN KEY ("+_vecFK[i].column->name+") REFERENCES "+_vecFK[i].reference;
             }
         }
         sql_create += "\n);\n";
         for(auto& col: columns)
             if(col->prop == Index)
-                sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col->name+" ON "+table_name+'('+col->name+");\n";
+                sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col->name+" ON "+_entity_name+'('+col->name+");\n";
 
         return sql_create;
     }
 };
 
 template<class type>
-string Table<type>::table_name;
+string Entity<type>::_entity_name;
 
 #endif // ORM_H

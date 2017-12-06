@@ -29,3 +29,10 @@ string tolower_str(string&& str){
 
     return str;
 }
+
+const char* remove_prefix_name(const char *str)
+{
+    while(str[0] < 'A' || str[0] > 'z')
+        str++;
+    return str;
+}
