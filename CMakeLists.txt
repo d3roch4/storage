@@ -4,7 +4,7 @@ project(storage)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/deps/mor/CMakeLists.txt)
+if(EXISTS ${PROJECT_SOURCE_DIR}/deps/mor/CMakeLists.txt AND NOT EXISTS TARGET mor)
     add_subdirectory(deps/mor)
 endif()
 
