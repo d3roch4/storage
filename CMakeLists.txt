@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(guardiao)
+project(storage)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-add_subdirectory(../mor mor)
+if(EXISTS ${PROJECT_SOURCE_DIR}/deps/mor/CMakeLists.txt)
+    add_subdirectory(deps/mor)
+endif()
+
 add_subdirectory(test)
 
 file(GLOB CPP_FILES src/*.cpp)
