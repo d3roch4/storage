@@ -1,16 +1,20 @@
 #include "postgresql.h"
 #include "mor.h"
 
-shared_ptr<PostgreSQL> PostgreSQL::instance;
-
 static void noticeReceiver(void *arg, const PGresult *res)
 {
     // faz nada.
 }
 
-PostgreSQL::PostgreSQL(string connectionStr)
+PostgreSQL::PostgreSQL()
 {
-    conn = PQconnectdb(connectionStr.c_str());
+}
+
+
+
+void PostgreSQL::open(const string &connection)
+{
+    conn = PQconnectdb(connection.c_str());
     if (PQstatus(conn) == CONNECTION_BAD){
         throw_with_nested(runtime_error(PQerrorMessage(conn)));
     }
@@ -18,19 +22,27 @@ PostgreSQL::PostgreSQL(string connectionStr)
     PQsetNoticeReceiver(conn, noticeReceiver, NULL);
 }
 
-shared_ptr<PostgreSQL> PostgreSQL::getInstance(string connection)
-{
-    if(instance == nullptr)
-        instance = shared_ptr<PostgreSQL>(new PostgreSQL(connection));
-    return instance;
-}
-
-PostgreSQL::~PostgreSQL()
+void PostgreSQL::close()
 {
     // close the connection to the database and cleanup
     PQfinish(conn);
 }
 
+void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > &columns)
+{
+    open(get_connection_str());
+    PGresult* res = PQexec(conn, sql.c_str());
+    verifyResult(res, conn);
+
+    for(int i=0; i<PQntuples(res); i++) {
+        for(auto& col: columns){
+            col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
+        }
+    }
+
+    PQclear(res);
+    close();
+}
 
 void verifyResult(PGresult* res, PGconn *conn){
     ExecStatusType status = PQresultStatus(res);

@@ -77,10 +77,103 @@ enum Operator {
     OR
 };
 
+template<typename TypeBackend>
 class Backend
 {
+    static string connection;
+    static shared_ptr<TypeBackend> instance;
 public:
-    Backend();
+    Backend(){}
+
+    virtual void exec_sql(const string& sql, const vector<unique_ptr<iColumn>>& columns={}) = 0;
+    virtual void open(const string& connection)=0;
+    virtual void close()=0;
+
+    string get_connection_str(){
+        return connection;
+    }
+
+    template<class TypeRet>
+    TypeRet exec_sql(const string& sql)
+    {
+        return ((TypeBackend*)this)->exec_sql<TypeRet>(sql);
+    }
+
+    template<class type>
+    void create(){
+        const type obj;
+        Entity<type>* table = (Entity<type>*) &obj;
+        const string& sql = table->sql_create(table->_columns);
+
+        exec_sql(sql);
+    }
+
+    template<class type>
+    void drop(){
+        const type obj;
+        string sql = "DROP TABLE IF EXISTS "+Entity<type>::_entity_name;
+
+        exec_sql(sql);
+    }
+
+    template<class type>
+    void remove(type& bean){
+        Entity<type>* table = (Entity<type>*) &bean;
+        string sql = "delete from "+table->_entity_name+" where "+getWherePK(table);
+
+        exec_sql(sql);
+    }
+
+    template<class type>
+    void update(type& bean, const string& where){
+        Entity<type>* table = (Entity<type>*) &bean;
+        const string& sql = (getSqlUpdate(table->_entity_name, table->_columns)+" where "+where);
+
+        exec_sql(sql);
+    }
+
+    template<class type>
+    void insert(type& bean){
+        Entity<type>* table = (Entity<type>*) &bean;
+        const string& sql = getSqlInsert(table);// + " RETURNING "+getListPK(table);
+
+        exec_sql(sql, table->_columns);
+    }
+
+
+    template<class TypeRet>
+    TypeRet find(string where)
+    {
+        static_assert(std::is_base_of<Entity<TypeRet>, TypeRet>::value, "TypeRet is not a bean valid");
+        TypeRet ret;
+        Entity<TypeRet>* table = (Entity<TypeRet>*) &ret ;
+
+        string sql = "select * from "+table->_entity_name+" where "+where;
+
+        exec_sql(sql, table->_columns);
+        return ret;
+    }
+
+    template<class TypeRet>
+    TypeRet find_list(string where)
+    {
+        typedef typename TypeRet:: value_type TypeBean;
+        static_assert(std::is_base_of<Entity<TypeBean>, TypeBean>::value, "TypeRet is not a list<bean> valid");
+
+        string sql = "select * from "+Entity<TypeBean>::_entity_name+" where "+where;
+
+        return exec_sql<TypeRet>(sql);
+    }
+
+
+    static shared_ptr<TypeBackend> getInstance(string connection="")
+    {
+        if(instance == nullptr){
+            instance = shared_ptr<TypeBackend>(new TypeBackend());
+            Backend<TypeBackend>::connection = connection;
+        }
+        return instance;
+    }
 
     bool isPrimaryKey(const iColumn* col, const vector<string>& vecPk);
 
@@ -109,7 +202,19 @@ public:
         sql << ')';
         return sql.str();
     }
-    string getSqlUpdate(const string& table, const vector<unique_ptr<iColumn> > &columns);
+
+    string getSqlUpdate(const string& table, const vector<unique_ptr<iColumn> > &columns)
+    {
+        std::stringstream sql;
+        sql << "UPDATE " << table << " SET ";
+        for(int i=0; i<columns.size(); i++){
+            const iColumn* col = columns[i].get();
+            sql << col->name << "=\'" << col->getValue() << '\'';
+            if(i<columns.size()-1)
+                sql << ", ";
+        }
+        return sql.str();
+    }
 
     template<class type>
     string getWherePK(Entity<type>* table){
@@ -137,19 +242,28 @@ public:
             pks[pks.size()-2] = '\0';
         return pks;
     }
+
+
 };
 
+template<typename TypeBackend>
+shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
+
+template<typename TypeBackend>
+string Backend<TypeBackend>::connection;
 
 string to_string(const Operator& ope);
 
 string to_string(const Condition &condition);
 
-template <typename T> string where(const T& t) {
+template <typename T>
+string where(const T& t) {
     string str = to_string(t);
     return str;
 }
 
-template <typename First, typename... Rest> string where(const First& first, const Rest&... rest) {
+template <typename First, typename... Rest>
+string where(const First& first, const Rest&... rest) {
     string str = to_string(first);
     str += where(rest...); // recursive call using pack expansion syntax
     return str;

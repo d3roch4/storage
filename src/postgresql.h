@@ -8,81 +8,28 @@
 
 void verifyResult(PGresult* res, PGconn *conn);
 
-class PostgreSQL : Backend
+class PostgreSQL : public Backend<PostgreSQL>
 {
     PGconn     *conn;
 public:
 
-    static shared_ptr<PostgreSQL> getInstance(string connection="");
+    PostgreSQL();
 
-    template<class type>
-    void create(){
-        const type obj;
-        Entity<type>* table = (Entity<type>*) &obj;
-        const string& sql = table->sql_create(table->_columns);
-        PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
-        PQclear(res);
+    void open(const string& connection);
+    void close();
 
-    }
-
-    template<class type>
-    void drop(){
-        const type obj;
-        string sql = "DROP TABLE IF EXISTS "+Entity<type>::_entity_name;
-        PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
-        PQclear(res);
-    }
-
-    template<class type>
-    void remove(type& bean){
-        Entity<type>* table = (Entity<type>*) &bean;
-        string sql = "delete from "+table->_entity_name+" where "+getWherePK(table);
-        PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
-        PQclear(res);
-    }
-
-    template<class type>
-    void insert(type& bean){
-        Entity<type>* table = (Entity<type>*) &bean;
-        const string& sql = getSqlInsert(table) + " RETURNING "+getListPK(table);
-        PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
-
-        for(int i=0; i<PQntuples(res); i++) {
-            for(auto& col: table->_columns){
-                if(col->prop == PrimaryKey)
-                    col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
-            }
-        }
-
-        PQclear(res);
-    }
-
-    template<class type>
-    void update(type& bean, const string& where){
-        Entity<type>* table = (Entity<type>*) &bean;
-        const string& sql = (getSqlUpdate(table->_entity_name, table->_columns)+" where "+where);
-        PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
-        PQclear(res);
-    }
-
+    void exec_sql(const string& sql, const vector<unique_ptr<iColumn>>& columns={});
 
     template<class TypeRet>
-    TypeRet find_list(string where)
+    TypeRet exec_sql(const string& sql)
     {
+        open(get_connection_str());
         typedef typename TypeRet:: value_type TypeBean;
-        static_assert(std::is_base_of<Entity<TypeBean>, TypeBean>::value, "TypeRet is not a list<bean> valid");
         TypeRet ret;
-
-        Entity<TypeBean>* table;
-        string sql = "select * from "+Entity<TypeBean>::_entity_name+" where "+where;
         PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn);
 
+        Entity<TypeBean>* table;
         int rows = PQntuples(res);
         for(int i=0; i<rows; i++) {
             TypeBean obj;
@@ -94,34 +41,8 @@ public:
         }
         PQclear(res);
         return ret;
+        close();
     }
-
-
-    template<class TypeRet>
-    TypeRet find(string where)
-    {
-        static_assert(std::is_base_of<Entity<TypeRet>, TypeRet>::value, "TypeRet is not a bean valid");
-        TypeRet ret;
-        Entity<TypeRet>* table = (Entity<TypeRet>*) &ret ;
-
-        string sql = "select * from "+table->_entity_name+" where "+where;
-        const char* cs = sql.c_str();
-        PGresult* res = PQexec(conn, cs);
-        verifyResult(res, conn);
-
-        for(int i=0; i<PQntuples(res); i++) {
-            for(auto& col: table->_columns){
-                col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
-            }
-        }
-        PQclear(res);
-        return ret;
-    }
-
-    ~PostgreSQL();
-private:
-    static shared_ptr<PostgreSQL> instance;
-    PostgreSQL(string connection);
 };
 
 #endif // POSTGRESQL_H

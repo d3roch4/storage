@@ -1,4 +1,4 @@
-#include "postgresql.h"
+#include "sqlite.h"
 #include <list>
 
 class Pessoa : private Entity<Pessoa>
@@ -22,7 +22,7 @@ public:
 };
 
 
-auto persist = PostgreSQL::getInstance("dbname=printnow user=postgres password=postgres");
+auto persist = SQLite::getInstance("teste.db");
 list<Pessoa> q;
 
 void func(Pessoa& copia){
@@ -53,14 +53,15 @@ int main()
     insert();
     Pessoa& copia = q.back();
 
-    Pessoa&& p = persist->find<Pessoa>(where(condition("id", EQUAL, "1" )));
-    cout << "Hello " << p.nome << ", idade: " << p.idade << endl;
+    persist->insert(copia);
+    Pessoa&& p = persist->find<Pessoa>(where(Condition{"id"} > 0 ));
+    cout << "Hello " << p.nome << ", id: " <<p.id << ", idade: " << p.idade << endl;
 
     copia.nome = "Cicrano";
     copia.idade = 30;
     persist->update(copia, "id="+to_string(1));
 
-    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, "2") ));
+    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, 2) ));
     for(Pessoa& pessoa: list)
         cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
 
