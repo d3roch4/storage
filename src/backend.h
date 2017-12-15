@@ -135,7 +135,7 @@ public:
     template<class type>
     void insert(type& bean){
         Entity<type>* table = (Entity<type>*) &bean;
-        const string& sql = getSqlInsert(table);// + " RETURNING "+getListPK(table);
+        const string& sql = getSqlInsert(table->_entity_name, table->_columns);
 
         exec_sql(sql, table->_columns);
     }
@@ -177,26 +177,25 @@ public:
 
     bool isPrimaryKey(const iColumn* col, const vector<string>& vecPk);
 
-    template<class type>
-    string getSqlInsert(Entity<type>* table){
+    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<iColumn> >& columns){
         std::stringstream sql;
-        sql << "INSERT INTO " << table->_entity_name << '(';
-        for(int i=0; i<table->_columns.size(); i++){
-            const iColumn* col = table->_columns.at(i).get();
+        sql << "INSERT INTO " << entity_name << '(';
+        for(int i=0; i<columns.size(); i++){
+            const iColumn* col = columns.at(i).get();
             if(col->prop==PrimaryKey && col->isNull())
                 continue;
             sql << col->name;
-            if(i<table->_columns.size()-1)
+            if(i<columns.size()-1)
                 sql << ", ";
         }
         sql << ") VALUES (";
-        for(int i=0; i<table->_columns.size(); i++){
-            const iColumn* col = table->_columns.at(i).get();
+        for(int i=0; i<columns.size(); i++){
+            const iColumn* col = columns.at(i).get();
             if(col->prop==PrimaryKey && col->isNull())
                 continue;
             const string& val = col->getValue();
             sql << '\'' << val << '\'';
-            if(i<table->_columns.size()-1)
+            if(i<columns.size()-1)
                 sql << ", ";
         }
         sql << ')';
@@ -230,11 +229,10 @@ public:
         return where;
     }
 
-    template<class type>
-    string getListPK(Entity<type>* table){
+    string getListPK(vector<unique_ptr<iColumn> >& columns){
         string pks;
-        for(int i=0; i<table->_columns.size(); i++){
-            iColumn* col = table->_columns.at(i).get();
+        for(int i=0; i<columns.size(); i++){
+            iColumn* col = columns.at(i).get();
             if(col->prop == PrimaryKey)
                 pks += col->name + ", ";
         }
@@ -255,6 +253,7 @@ string Backend<TypeBackend>::connection;
 string to_string(const Operator& ope);
 
 string to_string(const Condition &condition);
+
 
 template <typename T>
 string where(const T& t) {

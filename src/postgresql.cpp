@@ -32,7 +32,7 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > 
 {
     open(get_connection_str());
     PGresult* res = PQexec(conn, sql.c_str());
-    verifyResult(res, conn);
+    verifyResult(res, conn, sql);
 
     for(int i=0; i<PQntuples(res); i++) {
         for(auto& col: columns){
@@ -44,11 +44,16 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > 
     close();
 }
 
-void verifyResult(PGresult* res, PGconn *conn){
+string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iColumn> > &columns)
+{
+    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + " RETURNING "+getListPK(columns);
+}
+
+void verifyResult(PGresult* res, PGconn *conn, const string &sql){
     ExecStatusType status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
     {
         string erro = PQerrorMessage(conn);
-        throw_with_nested(runtime_error("PostgreSQL: "+erro) );
+        throw_with_nested(runtime_error("PostgreSQL: "+erro+"\n\tSQL: "+sql) );
     }
 }

@@ -1,4 +1,5 @@
 #include "sqlite.h"
+#include "postgresql.h"
 #include <list>
 
 class Pessoa : private Entity<Pessoa>
@@ -22,7 +23,7 @@ public:
 };
 
 
-auto persist = SQLite::getInstance("teste.db");
+shared_ptr<PostgreSQL> persist;
 list<Pessoa> q;
 
 void func(Pessoa& copia){
@@ -46,22 +47,30 @@ void insert(){
 
 int main()
 {
+    persist =  PostgreSQL::getInstance("host=localhost dbname=printnow user=postgres password=postgres"); //SQLite::getInstance("teste.db");
     cout << where(Condition{"col1"} > 87, AND, Condition{"col2"} % "abacate") << endl;
     persist->drop<Pessoa>();
     persist->create<Pessoa>();
 
+
     insert();
     Pessoa& copia = q.back();
 
-    persist->insert(copia);
-    Pessoa&& p = persist->find<Pessoa>(where(Condition{"id"} > 0 ));
+    Pessoa&& p = persist->find<Pessoa>(where(Condition{"nome"} % "Ful" ));
     cout << "Hello " << p.nome << ", id: " <<p.id << ", idade: " << p.idade << endl;
 
     copia.nome = "Cicrano";
     copia.idade = 30;
     persist->update(copia, "id="+to_string(1));
 
-    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, 2) ));
+    copia.id=0;
+    copia.nome = "Bertuliano";
+    persist->insert(copia);
+    copia.id=0;
+    copia.nome = "Teotrano";
+    persist->insert(copia);
+
+    vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, 0) ));
     for(Pessoa& pessoa: list)
         cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
 

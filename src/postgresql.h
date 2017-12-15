@@ -6,7 +6,7 @@
 #include <vector>
 #include <type_traits>
 
-void verifyResult(PGresult* res, PGconn *conn);
+void verifyResult(PGresult* res, PGconn *conn, const string &sql);
 
 class PostgreSQL : public Backend<PostgreSQL>
 {
@@ -27,7 +27,7 @@ public:
         typedef typename TypeRet:: value_type TypeBean;
         TypeRet ret;
         PGresult* res = PQexec(conn, sql.c_str());
-        verifyResult(res, conn);
+        verifyResult(res, conn, sql);
 
         Entity<TypeBean>* table;
         int rows = PQntuples(res);
@@ -43,6 +43,8 @@ public:
         return ret;
         close();
     }
+
+    string getSqlInsert(const string& entity_name, vector<unique_ptr<iColumn> >& columns);
 };
 
 #endif // POSTGRESQL_H
