@@ -96,7 +96,7 @@ public:
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)
     {
-        return ((TypeBackend*)this)->exec_sql<TypeRet>(sql);
+        return ((TypeBackend*)this)->template exec_sql<TypeRet>(sql);
     }
 
     template<class type>
