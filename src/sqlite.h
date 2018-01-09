@@ -13,7 +13,7 @@ public:
     void open(const string& connection);
     void close();
 
-    void exec_sql(const string& sql, const vector<unique_ptr<iColumn>>& columns={});
+    void exec_sql(const string& sql, const vector<unique_ptr<iField>>& columns={});
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)

@@ -20,7 +20,7 @@ void SQLite::close()
 }
 
 static int callback(void *data, int argc, char **argv, char **azColName) {
-    vector<unique_ptr<iColumn> >* columns = (vector<unique_ptr<iColumn> >*)data;
+    vector<unique_ptr<iField> >* columns = (vector<unique_ptr<iField> >*)data;
     int i;
     for(i = 0; i<argc; i++) {
       for(auto& col: *columns){
@@ -34,7 +34,7 @@ static int callback(void *data, int argc, char **argv, char **azColName) {
     return 0;
 }
 
-void SQLite::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > &columns)
+void SQLite::exec_sql(const string &sql, const vector<unique_ptr<iField> > &columns)
 {
     open(get_connection_str());
     char *zErrMsg = 0;

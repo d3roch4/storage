@@ -18,7 +18,7 @@ public:
     void open(const string& connection);
     void close();
 
-    void exec_sql(const string& sql, const vector<unique_ptr<iColumn>>& columns={});
+    void exec_sql(const string& sql, const vector<unique_ptr<iField>>& columns={});
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)
@@ -34,7 +34,7 @@ public:
         for(int i=0; i<rows; i++) {
             TypeBean obj;
             table = (Entity<TypeBean>*) &obj ;
-            for(auto& col: table->_columns){
+            for(auto& col: table->_fields){
                 col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
             }
             ret.emplace_back(obj);
@@ -44,7 +44,7 @@ public:
         close();
     }
 
-    string getSqlInsert(const string& entity_name, vector<unique_ptr<iColumn> >& columns);
+    string getSqlInsert(const string& entity_name, vector<unique_ptr<iField> >& columns);
 };
 
 #endif // POSTGRESQL_H

@@ -1,5 +1,5 @@
 #include "postgresql.h"
-#include "mor.h"
+#include "entity.h"
 
 static void noticeReceiver(void *arg, const PGresult *res)
 {
@@ -28,7 +28,7 @@ void PostgreSQL::close()
     PQfinish(conn);
 }
 
-void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > &columns)
+void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &columns)
 {
     open(get_connection_str());
     PGresult* res = PQexec(conn, sql.c_str());
@@ -44,7 +44,7 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iColumn> > 
     close();
 }
 
-string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iColumn> > &columns)
+string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iField> > &columns)
 {
     return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + " RETURNING "+getListPK(columns);
 }

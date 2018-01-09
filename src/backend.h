@@ -2,7 +2,7 @@
 #define BACKEND_H
 
 #include <memory>
-#include "mor.h"
+#include "entity.h"
 
 using namespace std;
 
@@ -77,15 +77,22 @@ enum Operator {
     OR
 };
 
+
+bool isPrimaryKey(const iField* field);
+
+bool isIndexed(const iField *field);
+
 template<typename TypeBackend>
 class Backend
 {
     static string connection;
     static shared_ptr<TypeBackend> instance;
 public:
+
+
     Backend(){}
 
-    virtual void exec_sql(const string& sql, const vector<unique_ptr<iColumn>>& columns={}) = 0;
+    virtual void exec_sql(const string& sql, const vector<unique_ptr<iField>>& columns={}) = 0;
     virtual void open(const string& connection)=0;
     virtual void close()=0;
 
@@ -103,8 +110,7 @@ public:
     void create(){
         const type obj;
         Entity<type>* table = (Entity<type>*) &obj;
-        const string& sql = table->sql_create(table->_columns);
-
+        const string& sql = sql_create(table);
         exec_sql(sql);
     }
 
@@ -127,7 +133,7 @@ public:
     template<class type>
     void update(type& bean, const string& where){
         Entity<type>* table = (Entity<type>*) &bean;
-        const string& sql = (getSqlUpdate(table->_entity_name, table->_columns)+" where "+where);
+        const string& sql = (getSqlUpdate(table->_entity_name, table->_fields)+" where "+where);
 
         exec_sql(sql);
     }
@@ -135,9 +141,9 @@ public:
     template<class type>
     void insert(type& bean){
         Entity<type>* table = (Entity<type>*) &bean;
-        const string& sql = getSqlInsert(table->_entity_name, table->_columns);
+        const string& sql = getSqlInsert(table->_entity_name, table->_fields);
 
-        exec_sql(sql, table->_columns);
+        exec_sql(sql, table->_fields);
     }
 
 
@@ -150,7 +156,7 @@ public:
 
         string sql = "select * from "+table->_entity_name+" where "+where;
 
-        exec_sql(sql, table->_columns);
+        exec_sql(sql, table->_fields);
         return ret;
     }
 
@@ -175,14 +181,12 @@ public:
         return instance;
     }
 
-    bool isPrimaryKey(const iColumn* col, const vector<string>& vecPk);
-
-    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<iColumn> >& columns){
+    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<iField> >& columns){
         std::stringstream sql;
         sql << "INSERT INTO " << entity_name << '(';
         for(int i=0; i<columns.size(); i++){
-            const iColumn* col = columns.at(i).get();
-            if(col->prop==PrimaryKey && col->isNull())
+            const iField* col = columns.at(i).get();
+            if(isPrimaryKey(col) && col->isNull())
                 continue;
             sql << col->name;
             if(i<columns.size()-1)
@@ -190,8 +194,8 @@ public:
         }
         sql << ") VALUES (";
         for(int i=0; i<columns.size(); i++){
-            const iColumn* col = columns.at(i).get();
-            if(col->prop==PrimaryKey && col->isNull())
+            const iField* col = columns.at(i).get();
+            if(isPrimaryKey(col) && col->isNull())
                 continue;
             const string& val = col->getValue();
             sql << '\'' << val << '\'';
@@ -202,12 +206,12 @@ public:
         return sql.str();
     }
 
-    string getSqlUpdate(const string& table, const vector<unique_ptr<iColumn> > &columns)
+    string getSqlUpdate(const string& table, const vector<unique_ptr<iField> > &columns)
     {
         std::stringstream sql;
         sql << "UPDATE " << table << " SET ";
         for(int i=0; i<columns.size(); i++){
-            const iColumn* col = columns[i].get();
+            const iField* col = columns[i].get();
             sql << col->name << "=\'" << col->getValue() << '\'';
             if(i<columns.size()-1)
                 sql << ", ";
@@ -218,9 +222,9 @@ public:
     template<class type>
     string getWherePK(Entity<type>* table){
         string where;
-        for(int i=0; i<table->_columns.size(); i++){
-            iColumn* col = table->_columns.at(i).get();
-            if(col->prop == PrimaryKey)
+        for(int i=0; i<table->_fields.size(); i++){
+            iField* col = table->_fields.at(i).get();
+            if(isPrimaryKey(col))
                 where += col->name +"='"+col->getValue()+"' AND ";
         }
 
@@ -229,11 +233,11 @@ public:
         return where;
     }
 
-    string getListPK(vector<unique_ptr<iColumn> >& columns){
+    string getListPK(vector<unique_ptr<iField> >& columns){
         string pks;
         for(int i=0; i<columns.size(); i++){
-            iColumn* col = columns.at(i).get();
-            if(col->prop == PrimaryKey)
+            iField* col = columns.at(i).get();
+            if(isPrimaryKey(col))
                 pks += col->name + ", ";
         }
         if(pks.size())
@@ -254,6 +258,7 @@ string to_string(const Operator& ope);
 
 string to_string(const Condition &condition);
 
+string getTypeDB(const type_index& ti);
 
 template <typename T>
 string where(const T& t) {
@@ -266,6 +271,47 @@ string where(const First& first, const Rest&... rest) {
     string str = to_string(first);
     str += where(rest...); // recursive call using pack expansion syntax
     return str;
+}
+
+template<typename type>
+string sql_create(Entity<type>* table){
+    short qtdPK=0;
+    string sql_create = "CREATE TABLE IF NOT EXISTS "+table->_entity_name+"(\n";
+    for(int i=0; i<table->_fields.size(); i++){
+        iField* col = table->_fields[i].get();
+        if(col->options.find("type_db")==col->options.end())
+            col->options["type_db"] = getTypeDB(*col->typeinfo);
+        sql_create += col->name +' '+col->options["type_db"];
+        sql_create += (col->options["attrib"]=="NotNull")?" NOT NULL ":"";
+        if(i<table->_fields.size()-1)
+            sql_create+=",\n";
+        if(isPrimaryKey(col))
+            qtdPK++;
+    }
+    if(qtdPK){
+        sql_create += ", CONSTRAINT PK_"+table->_entity_name+" PRIMARY KEY (";
+        for(int i=0; i<table->_fields.size(); i++){
+            iField* col = table->_fields[i].get();
+            if(isPrimaryKey(col)){
+                sql_create += col->name;
+                if(i<qtdPK-1)
+                    sql_create += ", ";
+            }
+        }
+        sql_create += ")\n";
+    }
+    if(table->_vecFK.size()){
+        for(int i=0; i<table->_vecFK.size(); i++){
+            sql_create += ", CONSTRAINT FK_"+table->_vecFK[i].field->name+table->_entity_name+
+                " FOREIGN KEY ("+table->_vecFK[i].field->name+") REFERENCES "+table->_vecFK[i].reference;
+        }
+    }
+    sql_create += "\n);\n";
+    for(auto& col: table->_fields)
+        if(isIndexed(col.get()))
+            sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col->name+" ON "+table->_entity_name+'('+col->name+");\n";
+
+    return sql_create;
 }
 
 #endif // BACKEND_H

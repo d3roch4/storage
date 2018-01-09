@@ -11,11 +11,11 @@ public:
     int idade;
     chrono::time_point<chrono::system_clock> data;
     Pessoa() {
-        column(id, "id", PrimaryKey, "SERIAL");
-        column(id2, "id2", PrimaryKey, "SERIAL");
-        column(nome, "nome");
-        column(idade, "idade");
-        column(data, "data");
+        field(id, "id", {{"attrib","PK"}, {"type_db","SERIAL"}});
+        field(id2, "id2", {{"attrib","PK"}, {"type_db","SERIAL"}});
+        field(nome, "nome");
+        field(idade, "idade");
+        field(data, "data");
     }
     ~Pessoa(){
 
@@ -72,7 +72,7 @@ int main()
 
     vector<Pessoa>&& list = persist->find_list<vector<Pessoa>>(where(condition("id", BIGGER_THEN, 0) ));
     for(Pessoa& pessoa: list)
-        cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Column<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
+        cout << "Hello " << pessoa.nome << ", idade: " << pessoa.idade << ", data: " << Field<chrono::time_point<std::chrono::system_clock>>(pessoa.data).getValue() << endl;
 
     persist->remove(p);
     persist->drop<Pessoa>();
