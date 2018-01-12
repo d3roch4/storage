@@ -46,7 +46,8 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &
 
 string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iField> > &columns)
 {
-    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + " RETURNING "+getListPK(columns);
+    const string& pks = getListPK(columns);
+    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + (pks.size()?" RETURNING "+pks:"");
 }
 
 void verifyResult(PGresult* res, PGconn *conn, const string &sql){
