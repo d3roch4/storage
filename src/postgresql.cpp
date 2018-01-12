@@ -36,11 +36,7 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &
 
     for(int i=0; i<PQntuples(res); i++) {
         for(auto& col: columns){
-            int field_num = PQfnumber(res, col->name.c_str());
-            if(field_num >= 0){
-                col->setValue(PQgetvalue(res, i, field_num));
-                break;
-            }
+            col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
         }
     }
 
