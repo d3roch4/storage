@@ -1,7 +1,10 @@
 #include "backend.h"
 #include <sstream>
 
+using namespace mor;
 
+namespace storage
+{
 
 string to_string(const Operator &ope){
     string str;
@@ -79,4 +82,6 @@ bool isIndexed(const iField *field)
             return true;
     }
     return false;
+}
+
 }

@@ -7,27 +7,27 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 option(BUILD_EXAMPLE "Build example code" OFF)
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/deps/mor/CMakeLists.txt AND NOT TARGET mor)
-    add_subdirectory(deps/mor)
+if(NOT TARGET mor)
+    add_subdirectory(../mor mor)
 endif()
 
 if(BUILD_EXAMPLE)
     add_subdirectory(example)
 endif()
 
-file(GLOB CPP_FILES src/backend.cpp)
-file(GLOB HPP_FILES src/backend.h)
+file(GLOB CPP_FILES storage/backend.cpp)
+file(GLOB HPP_FILES storage/backend.h)
 
 find_package (sqlite3)
 if (SQLITE3_FOUND)
-  set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite.cpp)
+  set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/storage/sqlite.cpp)
   include_directories(${SQLITE3_INCLUDE_DIRS})
   set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} ${SQLITE3_LIBRARIES})
 endif (SQLITE3_FOUND)
 
 find_package (PostgreSQL)
 if (POSTGRESQL_FOUND)
-  set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/src/postgresql.cpp)
+  set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.cpp)
   include_directories(${POSTGRESQL_INCLUDE_DIR})
   set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} ${POSTGRESQL_LIBRARIES})
 endif (POSTGRESQL_FOUND)
@@ -36,7 +36,7 @@ message(STATUS "LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND}")
 
 add_library(${PROJECT_NAME} ${CPP_FILES} ${HPP_FILES})
 target_link_libraries(${PROJECT_NAME} mor ${LIBRARIES_FOR_BACKEND})
-target_include_directories(${PROJECT_NAME} PUBLIC src)
+target_include_directories(${PROJECT_NAME} PUBLIC ./)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 install(FILES ${HPP_FILES} DESTINATION include/${PROJECT_NAME})

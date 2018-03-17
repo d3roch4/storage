@@ -5,6 +5,10 @@
 #include <postgresql/libpq-fe.h>
 #include <vector>
 #include <type_traits>
+#include "mor/entity.h"
+
+namespace storage
+{
 
 void verifyResult(PGresult* res, PGconn *conn, const string &sql);
 
@@ -18,7 +22,7 @@ public:
     void open(const string& connection);
     void close();
 
-    void exec_sql(const string& sql, const vector<unique_ptr<iField>>& columns={});
+    void exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={});
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)
@@ -29,11 +33,11 @@ public:
         PGresult* res = PQexec(conn, sql.c_str());
         verifyResult(res, conn, sql);
 
-        Entity<TypeBean>* table;
+        mor::Entity<TypeBean>* table;
         int rows = PQntuples(res);
         for(int i=0; i<rows; i++) {
             TypeBean obj;
-            table = (Entity<TypeBean>*) &obj ;
+            table = (mor::Entity<TypeBean>*) &obj ;
             for(auto& col: table->_fields){
                 col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
             }
@@ -44,7 +48,8 @@ public:
         close();
     }
 
-    string getSqlInsert(const string& entity_name, vector<unique_ptr<iField> >& columns);
+    string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns);
 };
 
+}
 #endif // POSTGRESQL_H

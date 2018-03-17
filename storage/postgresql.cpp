@@ -1,5 +1,9 @@
 #include "postgresql.h"
-#include "entity.h"
+
+using namespace mor;
+
+namespace storage
+{
 
 static void noticeReceiver(void *arg, const PGresult *res)
 {
@@ -57,4 +61,6 @@ void verifyResult(PGresult* res, PGconn *conn, const string &sql){
         string erro = PQerrorMessage(conn);
         throw_with_nested(runtime_error("PostgreSQL: "+erro+"\n\tSQL: "+sql) );
     }
+}
+
 }
