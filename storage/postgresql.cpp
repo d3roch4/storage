@@ -16,7 +16,7 @@ PostgreSQL::PostgreSQL()
 
 
 
-void PostgreSQL::open(const string &connection)
+void PostgreSQL::open(const string &connection) const
 {
     conn = PQconnectdb(connection.c_str());
     if (PQstatus(conn) == CONNECTION_BAD){
@@ -26,15 +26,15 @@ void PostgreSQL::open(const string &connection)
     PQsetNoticeReceiver(conn, noticeReceiver, NULL);
 }
 
-void PostgreSQL::close()
+void PostgreSQL::close() const
 {
     // close the connection to the database and cleanup
     PQfinish(conn);
 }
 
-void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &columns)
+string PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &columns) const
 {
-    open(get_connection_str());
+    open(connection);
     PGresult* res = PQexec(conn, sql.c_str());
     verifyResult(res, conn, sql);
 
@@ -44,11 +44,15 @@ void PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &
         }
     }
 
+    string rowsAffected = PQcmdTuples(res);
+
     PQclear(res);
     close();
+
+    return rowsAffected;
 }
 
-string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iField> > &columns)
+string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iField> > &columns) const
 {
     const string& pks = getListPK(columns);
     return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + (pks.size()?" RETURNING "+pks:"");

@@ -19,9 +19,13 @@ enum Comparator {
 };
 
 struct Condition {
-    string col;
+    const string& col;
     Comparator comparator;
     string val;
+
+    Condition(const string& str)
+        : col{str} {
+    }
 
     template<class type>
     Condition operator==( type arg){
@@ -148,29 +152,22 @@ string sql_create(mor::Entity<type>* table){
 template<typename TypeBackend>
 class Backend
 {
-    static string connection;
     static shared_ptr<TypeBackend> instance;
 public:
-
-
     Backend(){}
 
-    virtual void exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={}) = 0;
-    virtual void open(const string& connection)=0;
-    virtual void close()=0;
-
-    string get_connection_str(){
-        return connection;
-    }
+    virtual string exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={}) const = 0;
+    virtual void open(const string& connection) const =0;
+    virtual void close() const =0;
 
     template<class TypeRet>
-    TypeRet exec_sql(const string& sql)
+    TypeRet exec_sql(const string& sql) const
     {
         return ((TypeBackend*)this)->template exec_sql<TypeRet>(sql);
     }
 
     template<class type>
-    void create(){
+    void create() const{
         const type obj;
         mor::Entity<type>* table = (mor::Entity<type>*) &obj;
         const string& sql = sql_create(table);
@@ -178,7 +175,7 @@ public:
     }
 
     template<class type>
-    void drop(){
+    void drop() const{
         const type obj;
         string sql = "DROP TABLE IF EXISTS "+mor::Entity<type>::_entity_name;
 
@@ -186,66 +183,51 @@ public:
     }
 
     template<class type>
-    void remove(type& bean){
-        mor::Entity<type>* table = (mor::Entity<type>*) &bean;
-        string sql = "delete from "+table->_entity_name+" where "+getWherePK(table);
+    void remove(const string& where) const{
+        type obj;
+        mor::Entity<type>* table = (mor::Entity<type>*) &obj;
+        string sql = "delete from "+table->_entity_name+" where "+where;
 
         exec_sql(sql);
     }
 
     template<class type>
-    void update(type& bean, const string& where){
+    string update(type& bean, const string& where) const{
         mor::Entity<type>* table = (mor::Entity<type>*) &bean;
         const string& sql = (getSqlUpdate(table->_entity_name, table->_fields)+" where "+where);
 
-        exec_sql(sql);
+        return exec_sql(sql);
     }
 
     template<class type>
-    void insert(type& bean){
+    void insert(type& bean) const{
         mor::Entity<type>* table = (mor::Entity<type>*) &bean;
         const string& sql = getSqlInsert(table->_entity_name, table->_fields);
 
         exec_sql(sql, table->_fields);
     }
 
-/*
-    template<class TypeRet>
-    TypeRet find(string where)
+    template<class TypeObj, class TypeRet=vector<TypeObj>>
+    TypeRet find(const string& where="") const
     {
-        static_assert(std::is_base_of<mor::Entity<TypeRet>, TypeRet>::value, "TypeRet is not a bean valid");
-        TypeRet ret;
-        mor::Entity<TypeRet>* table = (mor::Entity<TypeRet>*) &ret ;
+        static_assert(std::is_base_of<mor::Entity<TypeObj>, TypeObj>::value, "TypeRet is not a list<bean> valid");
 
-        string sql = "select * from "+table->_entity_name+" where "+where;
-
-        exec_sql(sql, table->_fields);
-        return ret;
-    }
-*/
-
-    template<class TypeRet>
-    TypeRet find(string where)
-    {
-        typedef typename TypeRet:: value_type TypeBean;
-        static_assert(std::is_base_of<mor::Entity<TypeBean>, TypeBean>::value, "TypeRet is not a list<bean> valid");
-
-        string sql = "select * from "+mor::Entity<TypeBean>::_entity_name+" where "+where;
+        string sql = "select * from "+mor::Entity<TypeObj>::_entity_name+(where.empty()?"":" where "+where);
 
         return exec_sql<TypeRet>(sql);
     }
 
 
-    static shared_ptr<TypeBackend> getInstance(string connection="")
+    static TypeBackend& getInstance()
     {
         if(instance == nullptr){
             instance = shared_ptr<TypeBackend>(new TypeBackend());
-            Backend<TypeBackend>::connection = connection;
         }
-        return instance;
+        return *instance;
     }
 
-    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns){
+    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns) const
+    {
         std::stringstream sql;
         sql << "INSERT INTO " << entity_name << '(';
         for(int i=0; i<columns.size(); i++){
@@ -270,7 +252,7 @@ public:
         return sql.str();
     }
 
-    string getSqlUpdate(const string& table, const vector<unique_ptr<mor::iField> > &columns)
+    string getSqlUpdate(const string& table, const vector<unique_ptr<mor::iField> > &columns) const
     {
         std::stringstream sql;
         sql << "UPDATE " << table << " SET ";
@@ -284,7 +266,8 @@ public:
     }
 
     template<class type>
-    string getWherePK(mor::Entity<type>* table){
+    string getWherePK(mor::Entity<type>* table) const
+    {
         string where;
         for(int i=0; i<table->_fields.size(); i++){
             mor::iField* col = table->_fields.at(i).get();
@@ -297,7 +280,8 @@ public:
         return where;
     }
 
-    string getListPK(vector<unique_ptr<mor::iField> >& columns){
+    string getListPK(vector<unique_ptr<mor::iField> >& columns) const
+    {
         string pks;
         for(int i=0; i<columns.size(); i++){
             mor::iField* col = columns.at(i).get();
@@ -315,8 +299,8 @@ public:
 template<typename TypeBackend>
 shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
 
-template<typename TypeBackend>
-string Backend<TypeBackend>::connection;
+//template<typename TypeBackend>
+//string Backend<TypeBackend>::connection;
 
 }
 #endif // BACKEND_H

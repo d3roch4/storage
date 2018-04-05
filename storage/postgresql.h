@@ -14,20 +14,21 @@ void verifyResult(PGresult* res, PGconn *conn, const string &sql);
 
 class PostgreSQL : public Backend<PostgreSQL>
 {
-    PGconn     *conn;
+    mutable PGconn     *conn;
 public:
+    string connection;
 
     PostgreSQL();
 
-    void open(const string& connection);
-    void close();
+    void open(const string& connection) const ;
+    void close() const;
 
-    void exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={});
+    string exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={}) const;
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)
     {
-        open(get_connection_str());
+        open(connection);
         typedef typename TypeRet:: value_type TypeBean;
         TypeRet ret;
         PGresult* res = PQexec(conn, sql.c_str());
@@ -48,7 +49,7 @@ public:
         close();
     }
 
-    string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns);
+    string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns) const;
 };
 
 }

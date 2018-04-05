@@ -50,6 +50,8 @@ string getTypeDB(const type_index &ti){
         return "text";
     else if(ti == typeid(int) || ti==typeid(unsigned int))
         return "int";
+    else if(ti == typeid(char) || ti==typeid(unsigned char))
+        return "char";
     else if(ti == typeid(long) || ti==typeid(unsigned long))
         return "bigint";
     else if(ti == typeid(short) || ti==typeid(unsigned short))
