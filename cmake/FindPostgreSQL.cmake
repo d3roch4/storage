@@ -9,11 +9,11 @@
 #		becomes part of CMake distribution sometimes.
 
 # - Find sqlite3
-# Find the native SQLITE3 headers and libraries.
+# Find the native POSTGRESQL headers and libraries.
 #
-# SQLITE3_INCLUDE_DIRS	- where to find sqlite3.h, etc.
-# SQLITE3_LIBRARIES	- List of libraries when using sqlite.
-# SQLITE3_FOUND	- True if sqlite found.
+# POSTGRESQL_INCLUDE_DIRS	- where to find postgresql/libpq-fe.h, etc.
+# POSTGRESQL_LIBRARIES	- List of libraries when using pq.
+# PostgreSQL_FOUND	- True if postgresql found.
 
 # Look for the header file.
 FIND_PATH(POSTGRESQL_INCLUDE_DIR NAMES postgresql/libpq-fe.h)
@@ -27,11 +27,11 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(PostgreSQL DEFAULT_MSG POSTGRESQL_LIBRARY POST
 
 # Copy the results to the output variables.
 IF(PostgreSQL_FOUND)
-        SET(POSTGRESQL_LIBRARIES ${POSTGRESQL_LIBRARY})
-        SET(POSTGRESQL_INCLUDE_DIRS ${POSTGRESQL_INCLUDE_DIR})
+    SET(POSTGRESQL_LIBRARIES ${POSTGRESQL_LIBRARY})
+    SET(POSTGRESQL_INCLUDE_DIRS ${POSTGRESQL_INCLUDE_DIR})
 ELSE(PostgreSQL_FOUND)
-        SET(POSTGRESQL_LIBRARIES)
-        SET(POSTGRESQL_INCLUDE_DIRS)
+    SET(POSTGRESQL_LIBRARIES)
+    SET(POSTGRESQL_INCLUDE_DIRS)
 ENDIF(PostgreSQL_FOUND)
 
 MARK_AS_ADVANCED(POSTGRESQL_INCLUDE_DIRS POSTGRESQL_LIBRARIES)
