@@ -29,7 +29,7 @@ find_package (PostgreSQL)
 if (PostgreSQL_FOUND)
   set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.cpp)
   include_directories(${POSTGRESQL_INCLUDE_DIR})
-  set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} /usr/lib/x86_64-linux-gnu/libpq.so)#${POSTGRESQL_LIBRARIES})
+  set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} ${POSTGRESQL_LIBRARIES})
 endif (PostgreSQL_FOUND)
 
 message(STATUS "CPP_FILES: ${CPP_FILES}")

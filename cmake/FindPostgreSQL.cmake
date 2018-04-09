@@ -16,7 +16,7 @@
 # PostgreSQL_FOUND	- True if postgresql found.
 
 # Look for the header file.
-FIND_PATH(POSTGRESQL_INCLUDE_DIR NAMES postgresql/libpq-fe.h)
+FIND_PATH(POSTGRESQL_INCLUDE_DIR NAMES libpq-fe.h)
 
 # Look for the library.
 FIND_LIBRARY(POSTGRESQL_LIBRARY NAMES pq)
