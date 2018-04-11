@@ -8,7 +8,7 @@
 #		Everyone is encouraged to contact the author with improvements. Maybe this file
 #		becomes part of CMake distribution sometimes.
 
-# - Find sqlite3
+# - Find POSTGRESQL
 # Find the native POSTGRESQL headers and libraries.
 #
 # POSTGRESQL_INCLUDE_DIRS	- where to find postgresql/libpq-fe.h, etc.
