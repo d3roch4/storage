@@ -191,10 +191,20 @@ public:
         exec_sql(sql);
     }
 
-    template<class type>
-    string update(type& bean, const string& where) const{
+    /**
+     * @brief update
+     * @param bean, Objeto os valores a serem atualizado
+     * @param where, string com os parametros de busca dos objetos a serem atualizados.
+     * @param colls..., as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
+     */
+    template<class type, typename... Args>
+    string update(type& bean, const string& where, const Args&... colls) const
+    {
+        std::initializer_list<const char*> inputs({colls...});
+        vector<const char*> collumns(inputs);
+
         mor::Entity<type>* table = (mor::Entity<type>*) &bean;
-        const string& sql = (getSqlUpdate(table->_entity_name, table->_fields)+" where "+where);
+        const string& sql = (getSqlUpdate(table->_entity_name, table->_fields, collumns)+" where "+where);
 
         return exec_sql(sql);
     }
@@ -252,15 +262,28 @@ public:
         return sql.str();
     }
 
-    string getSqlUpdate(const string& table, const vector<unique_ptr<mor::iField> > &columns) const
+    string getSqlUpdate(const string& table, const vector<unique_ptr<mor::iField> > &columns, vector<const char*>& collumns_to_set) const
     {
         std::stringstream sql;
         sql << "UPDATE " << table << " SET ";
-        for(int i=0; i<columns.size(); i++){
-            const mor::iField* col = columns[i].get();
-            sql << col->name << "=\'" << col->getValue() << '\'';
-            if(i<columns.size()-1)
-                sql << ", ";
+        if(collumns_to_set.empty()){
+            for(int i=0; i<columns.size(); i++){
+                const mor::iField* col = columns[i].get();
+                sql << col->name << "=\'" << col->getValue() << '\'';
+                if(i<columns.size()-1)
+                    sql << ", ";
+            }
+        }else{
+            for(int j=0; j<collumns_to_set.size(); j++){
+                for(int i=0; i<columns.size(); i++){
+                    if(collumns_to_set[j] == columns[i]->name){
+                        const mor::iField* col = columns[i].get();
+                        sql << col->name << "=\'" << col->getValue() << '\'';
+                        if(j<collumns_to_set.size()-1)
+                            sql << ", ";
+                    }
+                }
+            }
         }
         return sql.str();
     }
