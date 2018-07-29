@@ -10,6 +10,9 @@ option(BUILD_EXAMPLE "Build example code" OFF)
 if(NOT TARGET mor)
     add_subdirectory(../mor mor)
 endif()
+if(NOT TARGET d3util)
+    add_subdirectory(../d3util d3util)
+endif()
 
 if(BUILD_EXAMPLE)
     add_subdirectory(example)
@@ -38,7 +41,7 @@ if(NOT LIBRARIES_FOR_BACKEND)
 endif()
 
 add_library(${PROJECT_NAME} ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(${PROJECT_NAME} mor ${LIBRARIES_FOR_BACKEND})
+target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} mor d3util )
 target_include_directories(${PROJECT_NAME} PUBLIC ./)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib)

@@ -45,7 +45,10 @@ string to_string(const Condition &condition){
     return str.str();
 }
 
-string getTypeDB(const type_index &ti){
+string getTypeDB(const DescField& desc, const shared_ptr<iField>& fi)
+{
+    const type_index &ti = *desc.typeinfo;
+
     if(ti == typeid(string))
         return "text";
     else if(ti == typeid(int) || ti==typeid(unsigned int))
@@ -64,26 +67,77 @@ string getTypeDB(const type_index &ti){
         return "float";
     else if(ti == typeid(chrono::time_point<std::chrono::system_clock>))
         return "TIMESTAMP";
+    else{
+        auto ref = desc.options.find("reference");
+        if(ref != desc.options.end()){
+            iEntity* ptr = (iEntity*) fi->value;
+            const vector<DescField>& descsChild = ptr->_get_desc_fields();
+            const vector<shared_ptr<iField>>& fieldsChild = ptr->_get_fields();
+            const string& refName = desc.options.find("field")->second;
+            for(int i=0; i<descsChild.size(); i++)
+                if(descsChild[i].name == refName)
+                    return getTypeDB(descsChild[i], fieldsChild[i]);
+        }
+    }
 
     throw_with_nested(runtime_error(string("getTypeDB: type not implemented for: ")+ti.name()));
 }
 
-bool isPrimaryKey(const iField *field)
+bool isPrimaryKey(const DescField& desc)
 {
-    for(const pair<string, string>& opt: field->options){
+    for(const pair<string, string>& opt: desc.options){
         if(opt.first == "attrib" && opt.second == "PK")
             return true;
     }
     return false;
 }
 
-bool isIndexed(const iField *field)
+bool isIndexed(const DescField& desc)
 {
-    for(const pair<string, string>& opt: field->options){
+    for(const pair<string, string>& opt: desc.options){
         if(opt.first == "attrib" && opt.second == "INDEXED")
             return true;
     }
     return false;
+}
+
+string sql_create(const string &table_name, vector<DescField>& descs, const vector<shared_ptr<mor::iField>>& fields){
+    short qtdPK=0;
+    string sql_create = "CREATE TABLE IF NOT EXISTS "+table_name+"(\n";
+    for(int i=0; i<descs.size(); i++)
+    {
+        if(descs[i].options.find("type_db")==descs[i].options.end())
+            descs[i].options["type_db"] = getTypeDB(descs[i], fields[i]);
+        sql_create += descs[i].name +' '+descs[i].options["type_db"];
+        sql_create += (descs[i].options["attrib"]=="NotNull")?" NOT NULL ":"";
+        if(i<descs.size()-1)
+            sql_create+=",\n";
+        if(isPrimaryKey(descs[i]))
+            qtdPK++;
+    }
+    if(qtdPK){
+        sql_create += ", CONSTRAINT PK_"+table_name+" PRIMARY KEY (";
+        for(int i=0; i<descs.size(); i++){
+            if(isPrimaryKey(descs[i])){
+                sql_create += descs[i].name;
+                if(i<qtdPK-1)
+                    sql_create += ", ";
+            }
+        }
+        sql_create += ")\n";
+    }
+    /*if(table->_vecFK.size()){
+        for(int i=0; i<table->_vecFK.size(); i++){
+            sql_create += ", CONSTRAINT FK_"+table->_vecFK[i].field->name+table->_entity_name+
+                " FOREIGN KEY ("+table->_vecFK[i].field->name+") REFERENCES "+table->_vecFK[i].reference;
+        }
+    }*/
+    sql_create += "\n);\n";
+    for(const auto& col: descs)
+        if(isIndexed(col))
+            sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col.name+" ON "+table_name+'('+col.name+");\n";
+
+    return sql_create;
 }
 
 }

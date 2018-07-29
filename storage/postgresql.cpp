@@ -1,3 +1,5 @@
+#include <thread>
+
 #include "postgresql.h"
 
 using namespace mor;
@@ -14,57 +16,104 @@ PostgreSQL::PostgreSQL()
 {
 }
 
-
-
-void PostgreSQL::open(const string &connection) const
+void PostgreSQL::connection(string connection_string, short count)
 {
-    conn = PQconnectdb(connection.c_str());
-    if (PQstatus(conn) == CONNECTION_BAD){
-        throw_with_nested(runtime_error(PQerrorMessage(conn)));
-    }
-
-    PQsetNoticeReceiver(conn, noticeReceiver, NULL);
+    connection_.connection_string = connection_string;
+    for(int i=0; i<count; i++)
+        connection_.vecConn.emplace_back(ConnectionManager::Connection{});
 }
 
-void PostgreSQL::close() const
+string PostgreSQL::exec_sql(const string& sql, const vector<shared_ptr<mor::iField>>& columns, const vector<mor::DescField>& descs) const
 {
-    // close the connection to the database and cleanup
-    PQfinish(conn);
-}
-
-string PostgreSQL::exec_sql(const string &sql, const vector<unique_ptr<iField> > &columns) const
-{
-    open(connection);
+    PGconn* conn = connection_.get();
     PGresult* res = PQexec(conn, sql.c_str());
-    verifyResult(res, conn, sql);
 
-    for(int i=0; i<PQntuples(res); i++) {
-        for(auto& col: columns){
-            col->setValue(PQgetvalue(res, i, PQfnumber(res, col->name.c_str())));
+    bool ok = verifyResult(res);
+    if(ok){
+        for(int i=0; i<PQntuples(res); i++) {
+            for(int j=0; j<columns.size(); j++){
+                columns[j]->setValue(PQgetvalue(res, i, PQfnumber(res, descs[j].name.c_str())), descs[j]);
+            }
         }
     }
 
     string rowsAffected = PQcmdTuples(res);
-
     PQclear(res);
-    close();
+    connection_.release(conn);
+
+    if(!ok)
+        throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
 
     return rowsAffected;
 }
 
-string PostgreSQL::getSqlInsert(const string &entity_name, vector<unique_ptr<iField> > &columns) const
+string PostgreSQL::getSqlInsert(const string &entity_name, vector<shared_ptr<iField> > &columns, vector<DescField>& descs) const
 {
-    const string& pks = getListPK(columns);
-    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns) + (pks.size()?" RETURNING "+pks:"");
+    const string& pks = getListPK(descs);
+    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns, descs) + (pks.size()?" RETURNING "+pks:"");
 }
 
-void verifyResult(PGresult* res, PGconn *conn, const string &sql){
+bool PostgreSQL::verifyResult(PGresult* res) const{
     ExecStatusType status = PQresultStatus(res);
-    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-    {
-        string erro = PQerrorMessage(conn);
-        throw_with_nested(runtime_error("PostgreSQL: "+erro+"\n\tSQL: "+sql) );
+    if (status == PGRES_COMMAND_OK || status == PGRES_TUPLES_OK)
+        return true;
+
+    return false;
+}
+
+
+PGconn* open(const string &connection)
+{
+    PGconn* conn = PQconnectdb(connection.c_str());
+    if (PQstatus(conn) == CONNECTION_BAD){
+        throw_with_trace( runtime_error(PQerrorMessage(conn)) );
     }
+
+    PQsetNoticeReceiver(conn, noticeReceiver, NULL);
+    return conn;
+}
+
+PGconn *PostgreSQL::ConnectionManager::try_get()
+{
+    unique_lock<mutex> lock{mtx};
+    PGconn* result=0;
+    for(Connection& conn: vecConn){
+        if(conn.in_use == false){
+            if(PQstatus(conn.pgconn) != CONNECTION_OK){
+                PQfinish(conn.pgconn);
+                conn.pgconn = open(connection_string);
+            }
+            result = conn.pgconn;
+            conn.in_use = true;
+            break;
+        }
+    }
+    return result;
+}
+
+PGconn *PostgreSQL::ConnectionManager::get()
+{
+    PGconn* result=0;
+    while((result=try_get()) == NULL)    {
+        std::this_thread::sleep_for(std::chrono::microseconds{300});
+    }
+    return result;
+}
+
+void PostgreSQL::ConnectionManager::release(PGconn *pgconn)
+{
+    for(Connection& conn: vecConn){
+        if(conn.pgconn == pgconn){
+            unique_lock<mutex> lock{mtx};
+            conn.in_use = false;
+        }
+    }
+}
+
+PostgreSQL::ConnectionManager::Connection::~Connection()
+{
+    if(pgconn)
+        PQfinish(pgconn);
 }
 
 }

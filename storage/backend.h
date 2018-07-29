@@ -2,7 +2,9 @@
 #define BACKEND_H
 
 #include <memory>
+#include <functional>
 #include "mor/entity.h"
+#include <boost/algorithm/string/replace.hpp>
 
 namespace storage
 {
@@ -72,11 +74,11 @@ struct Condition {
 
 //template<typename type>
 
-template<class type>
-Condition condition(string col, Comparator comparator, type val){
-    string str; stringstream ss; ss<<val; ss >> str;
-    return Condition{col, comparator, str};
-}
+//template<class type>
+//Condition condition(string col, Comparator comparator, type val){
+//    string str; stringstream ss; ss<<val; ss >> str;
+//    return Condition{col, comparator, str};
+//}
 
 enum Operator {
     AND,
@@ -84,15 +86,15 @@ enum Operator {
 };
 
 
-bool isPrimaryKey(const mor::iField* field);
+bool isPrimaryKey(const mor::DescField& desc);
 
-bool isIndexed(const mor::iField *field);
+bool isIndexed(const mor::DescField& desc);
 
 string to_string(const Operator& ope);
 
 string to_string(const Condition &condition);
 
-string getTypeDB(const type_index& ti);
+string getTypeDB(const mor::DescField &desc, const shared_ptr<mor::iField>& fi);
 
 template <typename T>
 string where(const T& t) {
@@ -107,47 +109,7 @@ string where(const First& first, const Rest&... rest) {
     return str;
 }
 
-template<typename type>
-string sql_create(mor::Entity<type>* table){
-    short qtdPK=0;
-    string sql_create = "CREATE TABLE IF NOT EXISTS "+table->_entity_name+"(\n";
-    for(int i=0; i<table->_fields.size(); i++){
-        mor::iField* col = table->_fields[i].get();
-        if(col->options.find("type_db")==col->options.end())
-            col->options["type_db"] = getTypeDB(*col->typeinfo);
-        sql_create += col->name +' '+col->options["type_db"];
-        sql_create += (col->options["attrib"]=="NotNull")?" NOT NULL ":"";
-        if(i<table->_fields.size()-1)
-            sql_create+=",\n";
-        if(isPrimaryKey(col))
-            qtdPK++;
-    }
-    if(qtdPK){
-        sql_create += ", CONSTRAINT PK_"+table->_entity_name+" PRIMARY KEY (";
-        for(int i=0; i<table->_fields.size(); i++){
-            mor::iField* col = table->_fields[i].get();
-            if(isPrimaryKey(col)){
-                sql_create += col->name;
-                if(i<qtdPK-1)
-                    sql_create += ", ";
-            }
-        }
-        sql_create += ")\n";
-    }
-    if(table->_vecFK.size()){
-        for(int i=0; i<table->_vecFK.size(); i++){
-            sql_create += ", CONSTRAINT FK_"+table->_vecFK[i].field->name+table->_entity_name+
-                " FOREIGN KEY ("+table->_vecFK[i].field->name+") REFERENCES "+table->_vecFK[i].reference;
-        }
-    }
-    sql_create += "\n);\n";
-    for(auto& col: table->_fields)
-        if(isIndexed(col.get()))
-            sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col->name+" ON "+table->_entity_name+'('+col->name+");\n";
-
-    return sql_create;
-}
-
+string sql_create(const string& table_name, vector<mor::DescField> &descs, const vector<shared_ptr<mor::iField>>& fields);
 
 template<typename TypeBackend>
 class Backend
@@ -156,9 +118,7 @@ class Backend
 public:
     Backend(){}
 
-    virtual string exec_sql(const string& sql, const vector<unique_ptr<mor::iField>>& columns={}) const = 0;
-    virtual void open(const string& connection) const =0;
-    virtual void close() const =0;
+    virtual string exec_sql(const string& sql, const vector<shared_ptr<mor::iField>>& columns={}, const vector<mor::DescField>& descs={}) const = 0;
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql) const
@@ -166,11 +126,17 @@ public:
         return ((TypeBackend*)this)->template exec_sql<TypeRet>(sql);
     }
 
+    template<class TypeBean>
+    void exec_sql(const string& sql, std::function<void(TypeBean&)> func) const
+    {
+        return ((TypeBackend*)this)->template exec_sql<TypeBean>(sql, func);
+    }
+
     template<class type>
     void create() const{
         const type obj;
         mor::Entity<type>* table = (mor::Entity<type>*) &obj;
-        const string& sql = sql_create(table);
+        const string& sql = sql_create(table->_entity_name, table->_desc_fields, table->_fields);
         exec_sql(sql);
     }
 
@@ -195,6 +161,21 @@ public:
      * @brief update
      * @param bean, Objeto os valores a serem atualizado
      * @param where, string com os parametros de busca dos objetos a serem atualizados.
+     * @param collumns, as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
+     */
+    template<class type>
+    string update(type& bean, const string& where, const vector<const char*>& collumns) const
+    {
+        mor::Entity<type>* entity = (mor::Entity<type>*) &bean;
+        const string& sql = (getSqlUpdate(entity, collumns)+" where "+where);
+
+        return exec_sql(sql);
+    }
+
+    /**
+     * @brief update
+     * @param bean, Objeto os valores a serem atualizado
+     * @param where, string com os parametros de busca dos objetos a serem atualizados.
      * @param colls..., as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
      */
     template<class type, typename... Args>
@@ -203,18 +184,15 @@ public:
         std::initializer_list<const char*> inputs({colls...});
         vector<const char*> collumns(inputs);
 
-        mor::Entity<type>* table = (mor::Entity<type>*) &bean;
-        const string& sql = (getSqlUpdate(table->_entity_name, table->_fields, collumns)+" where "+where);
-
-        return exec_sql(sql);
+        return update(bean, where, collumns);
     }
 
     template<class type>
     void insert(type& bean) const{
         mor::Entity<type>* table = (mor::Entity<type>*) &bean;
-        const string& sql = getSqlInsert(table->_entity_name, table->_fields);
+        const string& sql = getSqlInsert(table->_entity_name, table->_fields, table->_desc_fields);
 
-        exec_sql(sql, table->_fields);
+        exec_sql(sql, table->_fields, table->_desc_fields);
     }
 
     template<class TypeObj, class TypeRet=vector<TypeObj>>
@@ -227,6 +205,15 @@ public:
         return exec_sql<TypeRet>(sql);
     }
 
+    template<class TypeObj>
+    void find(const string& where, auto func) const
+    {
+        static_assert(std::is_base_of<mor::Entity<TypeObj>, TypeObj>::value, "TypeRet is not a list<bean> valid");
+
+        string sql = "select * from "+mor::Entity<TypeObj>::_entity_name+(where.empty()?"":" where "+where);
+
+        return exec_sql<TypeObj>(sql, func);
+    }
 
     static TypeBackend& getInstance()
     {
@@ -236,24 +223,27 @@ public:
         return *instance;
     }
 
-    virtual string getSqlInsert(const string& entity_name, vector<unique_ptr<mor::iField> >& columns) const
+    virtual string getSqlInsert(const string& entity_name, vector<shared_ptr<mor::iField> >& columns, vector<mor::DescField>& descs) const
     {
         std::stringstream sql;
         sql << "INSERT INTO " << entity_name << '(';
         for(int i=0; i<columns.size(); i++){
             const mor::iField* col = columns.at(i).get();
-            if(isPrimaryKey(col) && col->isNull())
+            if(isPrimaryKey(descs[i]) && col->isNull())
                 continue;
-            sql << col->name;
+            sql << descs[i].name;
             if(i<columns.size()-1)
                 sql << ", ";
         }
         sql << ") VALUES (";
         for(int i=0; i<columns.size(); i++){
             const mor::iField* col = columns.at(i).get();
-            if(isPrimaryKey(col) && col->isNull())
+            if(isPrimaryKey(descs[i]) && col->isNull())
                 continue;
-            const string& val = col->getValue();
+
+            string&& val = col->getValue(descs[i]);
+            boost::replace_all(val, "'", "''");
+
             sql << '\'' << val << '\'';
             if(i<columns.size()-1)
                 sql << ", ";
@@ -262,23 +252,32 @@ public:
         return sql.str();
     }
 
-    string getSqlUpdate(const string& table, const vector<unique_ptr<mor::iField> > &columns, vector<const char*>& collumns_to_set) const
+    template< class type>
+    string getSqlUpdate(mor::Entity<type>* entity, const vector<const char*>& collumns_to_set) const
     {
         std::stringstream sql;
-        sql << "UPDATE " << table << " SET ";
+        sql << "UPDATE " << entity->_entity_name << " SET ";
         if(collumns_to_set.empty()){
-            for(int i=0; i<columns.size(); i++){
-                const mor::iField* col = columns[i].get();
-                sql << col->name << "=\'" << col->getValue() << '\'';
-                if(i<columns.size()-1)
+            for(int i=0; i<entity->_fields.size(); i++){
+                const mor::iField* col = entity->_fields[i].get();
+
+                string&& val = col->getValue(entity->_desc_fields[i]);
+                boost::replace_all(val, "'", "''");
+
+                sql << entity->_desc_fields[i].name << "=\'" << val << '\'';
+                if(i<entity->_fields.size()-1)
                     sql << ", ";
             }
         }else{
             for(int j=0; j<collumns_to_set.size(); j++){
-                for(int i=0; i<columns.size(); i++){
-                    if(collumns_to_set[j] == columns[i]->name){
-                        const mor::iField* col = columns[i].get();
-                        sql << col->name << "=\'" << col->getValue() << '\'';
+                for(int i=0; i<entity->_fields.size(); i++){
+                    if(collumns_to_set[j] == entity->_desc_fields[i].name){
+                        const mor::iField* col = entity->_fields[i].get();
+
+                        string&& val = col->getValue(entity->_desc_fields[i]);
+                        boost::replace_all(val, "'", "''");
+
+                        sql << entity->_desc_fields[i].name << "=\'" << val << '\'';
                         if(j<collumns_to_set.size()-1)
                             sql << ", ";
                     }
@@ -289,13 +288,15 @@ public:
     }
 
     template<class type>
-    string getWherePK(mor::Entity<type>* table) const
+    string getWherePK(mor::Entity<type>* entity) const
     {
         string where;
-        for(int i=0; i<table->_fields.size(); i++){
-            mor::iField* col = table->_fields.at(i).get();
-            if(isPrimaryKey(col))
-                where += col->name +"='"+col->getValue()+"' AND ";
+        for(int i=0; i<entity->_fields.size(); i++){
+            mor::iField* col = entity->_fields.at(i).get();
+            if(isPrimaryKey(entity->_desc_fields[i]))
+                where += entity->_desc_fields[i].name
+                        +"='"+col->getValue(entity->_desc_fields[i])
+                        +"' AND ";
         }
 
         if(where.size())
@@ -303,13 +304,12 @@ public:
         return where;
     }
 
-    string getListPK(vector<unique_ptr<mor::iField> >& columns) const
+    string getListPK(vector<mor::DescField>& descs) const
     {
         string pks;
-        for(int i=0; i<columns.size(); i++){
-            mor::iField* col = columns.at(i).get();
-            if(isPrimaryKey(col))
-                pks += col->name + ", ";
+        for(int i=0; i<descs.size(); i++){
+            if(isPrimaryKey(descs[i]))
+                pks += descs[i].name + ", ";
         }
         if(pks.size())
             pks[pks.size()-2] = '\0';
