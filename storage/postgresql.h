@@ -20,6 +20,7 @@ class PostgreSQL : public Backend<PostgreSQL>
         {
             bool in_use=false;
             PGconn* pgconn=0;
+            Connection();
             ~Connection();
         };
         string connection_string;
@@ -32,12 +33,12 @@ class PostgreSQL : public Backend<PostgreSQL>
     };
     mutable ConnectionManager connection_;
 public:
-
     PostgreSQL();
 
     void connection(string connection_string, short count=4);
+    void close();
 
-    string exec_sql(const string& sql, const vector<shared_ptr<mor::iField>>& columns={}, const vector<mor::DescField>& descs={}) const;
+    string exec_sql(const string& sql, mor::iEntity* entity = 0) const;
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql)
@@ -47,6 +48,7 @@ public:
         TypeRet ret;
         PGresult* res = PQexec(conn, sql.c_str());
         bool ok = verifyResult(res);
+        connection_.release(conn);
         if(ok){
             mor::Entity<TypeBean>* table;
             int rows = PQntuples(res);
@@ -60,39 +62,29 @@ public:
             }
             PQclear(res);
         }
-        connection_.release(conn);
         if(!ok)
             throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
         return ret;
     }
 
+    void exec_sql(const string& sql, std::function<void(PGresult*, int, bool&)> callback);
+
     template<class TypeBean>
-    void exec_sql(const string& sql, std::function<void(TypeBean&)> func)
+    void exec_sql(const string& sql, std::function<void(TypeBean&)> callback)
     {
-        PGconn* conn = connection_.get();
-        PGresult* res = PQexec(conn, sql.c_str());
-        bool ok = verifyResult(res);
-        if(ok){
-            mor::Entity<TypeBean>* table;
-            int rows = PQntuples(res);
+        mor::Entity<TypeBean>* table;
+        exec_sql(sql, [&](PGresult* res, int rows, bool& ok){
             for(int l=0; l<rows; l++) {
                 TypeBean obj;
                 table = (mor::Entity<TypeBean>*) &obj ;
-                for(int c=0; c<table->_fields.size(); c++){
-                    table->_fields[c]->setValue(PQgetvalue(res, l, PQfnumber(res, table->_desc_fields[c].name.c_str())), table->_desc_fields[c]);
-                }
-                try{ func(obj);
-                }catch(...){
-                    ok=false; break;
-                }
+                int coll=0;
+                setValues(res, l, coll, table, PQnfields(res));
+                callback(obj);
             }
-            PQclear(res);
-        }
-        connection_.release(conn);
-        if(!ok)
-            throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
+        });
     }
 private:
+    void setValues(PGresult* res, const int &row, int& coll, mor::iEntity* entity, int nColl) const;
     bool verifyResult(PGresult* res) const;
     string getSqlInsert(const string& entity_name, vector<shared_ptr<mor::iField> > &columns, vector<mor::DescField>& descs) const;
 };

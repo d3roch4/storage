@@ -19,32 +19,71 @@ PostgreSQL::PostgreSQL()
 void PostgreSQL::connection(string connection_string, short count)
 {
     connection_.connection_string = connection_string;
-    for(int i=0; i<count; i++)
-        connection_.vecConn.emplace_back(ConnectionManager::Connection{});
+    connection_.vecConn.resize(count);
 }
 
-string PostgreSQL::exec_sql(const string& sql, const vector<shared_ptr<mor::iField>>& columns, const vector<mor::DescField>& descs) const
+void PostgreSQL::close()
+{
+    connection_.vecConn.clear();
+}
+
+void PostgreSQL::setValues(PGresult* res, const int& row, int& coll, mor::iEntity* entity, int nColl) const
+{
+    vector<mor::iEntity*> entityesJoin;
+    auto&& vecDesc = entity->_get_desc_fields();
+    for(int j=0; j<vecDesc.size() && coll<nColl; j++){
+        DescField& desc = entity->_get_desc_fields()[j];
+        auto&& ref = desc.options.find("reference");
+        if(ref != desc.options.end())
+            entityesJoin.push_back((mor::iEntity*)entity->_get_fields()[j]->value);
+        else
+            entity->_get_fields()[j]->setValue(PQgetvalue(res, row, coll), desc);
+        coll++;
+    }
+    for(iEntity* ent: entityesJoin)
+        setValues(res, row, coll, ent, nColl);
+}
+
+string PostgreSQL::exec_sql(const string& sql, mor::iEntity* entity) const
 {
     PGconn* conn = connection_.get();
     PGresult* res = PQexec(conn, sql.c_str());
-
     bool ok = verifyResult(res);
-    if(ok){
-        for(int i=0; i<PQntuples(res); i++) {
-            for(int j=0; j<columns.size(); j++){
-                columns[j]->setValue(PQgetvalue(res, i, PQfnumber(res, descs[j].name.c_str())), descs[j]);
-            }
-        }
+    connection_.release(conn);
+
+    if(ok && PQntuples(res)>0 && entity!=NULL){
+        int coll=0;
+        setValues(res, 0, coll, entity, PQnfields(res));
     }
 
     string rowsAffected = PQcmdTuples(res);
     PQclear(res);
-    connection_.release(conn);
 
     if(!ok)
         throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
 
     return rowsAffected;
+}
+
+void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int, bool&)> callback)
+{
+    clog << __PRETTY_FUNCTION__ << sql << endl;
+    PGconn* conn = connection_.get();
+    PGresult* res = PQexec(conn, sql.c_str());
+    bool ok = verifyResult(res);
+    connection_.release(conn);
+    if(ok){
+        int rows = PQntuples(res);
+        try{
+            callback(res, rows, ok);
+        }catch(const std::exception& ex){
+            PQclear(res);
+            throw_with_trace(ex);
+        }
+    }
+    PQclear(res);
+    if(!ok)
+        throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
 }
 
 string PostgreSQL::getSqlInsert(const string &entity_name, vector<shared_ptr<iField> > &columns, vector<DescField>& descs) const
@@ -106,8 +145,14 @@ void PostgreSQL::ConnectionManager::release(PGconn *pgconn)
         if(conn.pgconn == pgconn){
             unique_lock<mutex> lock{mtx};
             conn.in_use = false;
+            break;
         }
     }
+}
+
+storage::PostgreSQL::ConnectionManager::Connection::Connection()
+{
+
 }
 
 PostgreSQL::ConnectionManager::Connection::~Connection()

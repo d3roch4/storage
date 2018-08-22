@@ -10,9 +10,8 @@ class Pessoa : public Entity<Pessoa>
 {
 public:
     int id=0;
-    int id2=0;
     string nome;
-    int idade;
+    int idade=0;
     chrono::time_point<chrono::system_clock> data;
     Pessoa() {
         field(id, "id", {{"attrib","PK"}, {"type_db","SERIAL"}});
@@ -32,11 +31,36 @@ int main()
 
     PostgreSQL db;
     db.connection("host=localhost dbname=teste user=postgres password=postgres");
-
-    cout << where(Condition{"col1"} > 87, AND, Condition{"col2"} % "abacate") << endl;
     db.create<Pessoa>();
 
+    Pessoa pessoa;
+    pessoa.nome = "Silva Siqueira";
+    pessoa.idade = 32;
 
+    db.insert(pessoa);
+
+    Pessoa&& localizada = db.select<Pessoa>().where()
+            .eq("idade", 32).and_()
+            .like("nome", "%Silv%");
+    cout << localizada.nome << " tem " <<localizada.idade<< " id "<< localizada.id << endl;
+
+    Pessoa outro;
+    outro.nome = "Beotrano";
+    db.insert(outro);
+
+    vector<Pessoa>&& vec = db.select<Pessoa>();
+    for(Pessoa& p: vec)
+        cout << p.nome << " tem " << p.idade << " id: " << p.id << std::endl;
+
+
+    outro.id=0;
+    outro.nome = "Outro";
+    db.update(outro).where().eq("id", 1);
+
+
+    vec = db.select<Pessoa>();
+    for(Pessoa& p: vec)
+        cout << p.nome << " tem " << p.idade << " id> " << p.id << std::endl;
 
     db.drop<Pessoa>();
     return 0;

@@ -1,49 +1,11 @@
 #include "backend.h"
 #include <sstream>
+#include <mor/ientity.h>
 
 using namespace mor;
 
 namespace storage
 {
-
-string to_string(const Operator &ope){
-    string str;
-    switch (ope) {
-    case AND:
-        str+= " AND ";
-        break;
-    case OR:
-        str += " OR ";
-        break;
-    }
-    return str;
-}
-
-
-string to_string(const Condition &condition){
-    stringstream str;
-    switch (condition.comparator) {
-    case LIKE:
-        str << condition.col<<" like '%"<<condition.val<<"%'";
-        break;
-    case ARRAY_JSON:
-        str<<condition.col << " @> " << condition.val;
-        break;
-    case EQUAL:
-        str << condition.col << "='" << condition.val << "'";
-        break;
-    case DIFFERENT:
-        str << condition.col << "<>'" << condition.val << "'";
-        break;
-    case BIGGER_THEN:
-        str << condition.col << ">'" << condition.val << "'";
-        break;
-    case LESS_THAN:
-        str << condition.col << "<'" << condition.val << "'";
-        break;
-    }
-    return str.str();
-}
 
 string getTypeDB(const DescField& desc, const shared_ptr<iField>& fi)
 {
@@ -80,7 +42,7 @@ string getTypeDB(const DescField& desc, const shared_ptr<iField>& fi)
         }
     }
 
-    throw_with_nested(runtime_error(string("getTypeDB: type not implemented for: ")+ti.name()));
+    throw_with_trace(runtime_error(string("getTypeDB: type not implemented for: ")+ti.name()));
 }
 
 bool isPrimaryKey(const DescField& desc)
@@ -139,5 +101,43 @@ string sql_create(const string &table_name, vector<DescField>& descs, const vect
 
     return sql_create;
 }
+
+void putCollumnsSelect(mor::iEntity *entity, string& sql)
+{
+    sql += entity->_get_name()+".* ";
+    auto&& vecDesc = entity->_get_desc_fields();
+    for(int i=0; i<vecDesc.size(); i++){
+        mor::DescField& desc = vecDesc[i];
+        auto&& ref = desc.options.find("reference");
+        if(ref != desc.options.end()){
+            sql += ", ";
+            putCollumnsSelect((iEntity*)entity->_get_fields()[i]->value, sql);
+        }
+    }
+}
+
+void putJoinsSelect(mor::iEntity *entity, string& sql)
+{
+    auto&& vecDesc = entity->_get_desc_fields();
+    for(int i=0; i<vecDesc.size(); i++){
+        mor::DescField& desc = vecDesc[i];
+        auto&& ref = desc.options.find("reference");
+        if(ref != desc.options.end()){
+            sql += "\nLEFT JOIN "+ref->second+" ON "+entity->_get_name()+'.'+desc.name+'='+ref->second+'.'+desc.options["field"];
+            putJoinsSelect((mor::iEntity*)entity->_get_fields()[i]->value, sql);
+        }
+    }
+}
+
+std::string createSqlSelect(mor::iEntity* entity)
+{
+    string sql = "SELECT ";
+    putCollumnsSelect(entity, sql);
+    sql += "\nFROM "+entity->_get_name();
+    putJoinsSelect(entity, sql);
+    entity->_get_atrributes()["sql_select"] = sql;
+    return sql;
+}
+
 
 }
