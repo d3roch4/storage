@@ -12,9 +12,10 @@ struct Query {
 
     Query(){ }
 
-    ~Query(){
-        if(!execulted)
+    ~Query() noexcept(false) {
+        if(!execulted){
             db->exec_sql(sql);
+        }
     }
 
     operator TypeEntity() const {
