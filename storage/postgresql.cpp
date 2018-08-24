@@ -73,9 +73,9 @@ void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int
     PGconn* conn = connection_.get();
     PGresult* res = PQexec(conn, sql.c_str());
     bool ok = verifyResult(res);
+    int rows = PQntuples(res);
     connection_.release(conn);
     if(ok){
-        int rows = PQntuples(res);
         try{
             callback(res, rows, ok);
         }catch(const std::exception& ex){
