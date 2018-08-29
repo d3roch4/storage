@@ -1,6 +1,7 @@
 #include "backend.h"
 #include <sstream>
 #include <mor/ientity.h>
+#include <set>
 
 using namespace mor;
 
@@ -116,25 +117,28 @@ void putCollumnsSelect(mor::iEntity *entity, string& sql)
     }
 }
 
-void putJoinsSelect(mor::iEntity *entity, string& sql)
+void putJoinsSelect(mor::iEntity *entity, string& sql, set<string>& joinsRelations)
 {
     auto&& vecDesc = entity->_get_desc_fields();
     for(int i=0; i<vecDesc.size(); i++){
         mor::DescField& desc = vecDesc[i];
         auto&& ref = desc.options.find("reference");
-        if(ref != desc.options.end()){
-            sql += "\nLEFT JOIN "+ref->second+" ON "+entity->_get_name()+'.'+desc.name+'='+ref->second+'.'+desc.options["field"];
-            putJoinsSelect((mor::iEntity*)entity->_get_fields()[i]->value, sql);
+        if(ref != desc.options.end() && joinsRelations.find(ref->second)==joinsRelations.end()){
+            const string& relation = ref->second;
+            sql += "\nLEFT JOIN "+relation+" ON "+entity->_get_name()+'.'+desc.name+'='+ref->second+'.'+desc.options["field"];
+            joinsRelations.insert(relation);
+            putJoinsSelect((mor::iEntity*)entity->_get_fields()[i]->value, sql, joinsRelations);
         }
     }
 }
 
 std::string createSqlSelect(mor::iEntity* entity)
 {
+    set<string> joinsRelations;
     string sql = "SELECT ";
     putCollumnsSelect(entity, sql);
     sql += "\nFROM "+entity->_get_name();
-    putJoinsSelect(entity, sql);
+    putJoinsSelect(entity, sql, joinsRelations);
     entity->_get_atrributes()["sql_select"] = sql;
     return sql;
 }
