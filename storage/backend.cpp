@@ -87,7 +87,17 @@ string sql_create(const string &table_name, vector<DescField>& descs, const vect
                     sql_create += ", ";
             }
         }
-        sql_create += ")\n";
+        sql_create += ")";
+        for(DescField& desc: descs){
+            auto ref = desc.options.find("reference");
+            if(ref != desc.options.end()){
+                auto fie = desc.options.find("field");
+                if(fie==desc.options.end())
+                    throw_with_trace(runtime_error("field option not found in entity: "+table_name));
+                else
+                    sql_create += ",\nFOREIGN KEY ("+desc.name+") REFERENCES "+ref->second+"("+fie->second+")";
+            }
+        }
     }
     /*if(table->_vecFK.size()){
         for(int i=0; i<table->_vecFK.size(); i++){
@@ -100,6 +110,9 @@ string sql_create(const string &table_name, vector<DescField>& descs, const vect
         if(isIndexed(col))
             sql_create += "CREATE INDEX IF NOT EXISTS idx_"+col.name+" ON "+table_name+'('+col.name+");\n";
 
+#if DEBUG
+    clog << __PRETTY_FUNCTION__ << sql_create << endl;
+#endif
     return sql_create;
 }
 
@@ -141,6 +154,89 @@ std::string createSqlSelect(mor::iEntity* entity)
     putJoinsSelect(entity, sql, joinsRelations);
     entity->_get_atrributes()["sql_select"] = sql;
     return sql;
+}
+
+string getSqlInsertImpl(const string &entity_name, vector<shared_ptr<iField> > &columns, vector<DescField> &descs)
+{
+    std::stringstream sql;
+    sql << "INSERT INTO " << entity_name << '(';
+    for(int i=0; i<columns.size(); i++){
+        const mor::iField* col = columns.at(i).get();
+        if(isPrimaryKey(descs[i]) && col->isNull())
+            continue;
+        sql << descs[i].name;
+        if(i<columns.size()-1)
+            sql << ", ";
+    }
+    sql << ") VALUES (";
+    for(int i=0; i<columns.size(); i++){
+        const mor::iField* col = columns.at(i).get();
+        if(isPrimaryKey(descs[i]) && col->isNull())
+            continue;
+
+        string&& val = col->getValue(descs[i]);
+        boost::replace_all(val, "'", "''");
+
+        auto ref = descs[i].options.find("reference");
+        if(ref != descs[i].options.end() && (val.empty() || val =="0"))
+            sql << "NULL";
+        else
+            sql << '\'' << val << '\'';
+        if(i<columns.size()-1)
+            sql << ", ";
+    }
+    sql << ')';
+    return sql.str();
+}
+
+string getSqlUpdate(iEntity *entity, const vector<const char*>& collumns_to_set)
+{
+    std::stringstream sql;
+    const auto& descs = entity->_get_desc_fields();
+    const auto& fields = entity->_get_fields();
+
+    sql << "UPDATE " << entity->_get_name()<< " SET ";
+    if(collumns_to_set.empty()){
+        for(int i=0; i<fields.size(); i++){
+            const mor::iField* col = fields[i].get();
+
+            if(isPrimaryKey(descs[i]) && col->isNull())
+                continue;
+
+            string&& val = col->getValue(descs[i]);
+            boost::replace_all(val, "'", "''");
+
+            auto ref = descs[i].options.find("reference");
+            if(ref != descs[i].options.end() && (val.empty() || val=="0"))
+                sql << descs[i].name << "=NULL";
+            else
+                sql << descs[i].name << "=\'" << val << '\'';
+
+            if(i<fields.size()-1)
+                sql << ", ";
+        }
+    }else{
+        for(int j=0; j<collumns_to_set.size(); j++){
+            for(int i=0; i<fields.size(); i++){
+                if(collumns_to_set[j] == descs[i].name){
+                    const mor::iField* col = fields[i].get();
+
+                    string&& val = col->getValue(descs[i]);
+                    boost::replace_all(val, "'", "''");
+
+                    auto ref = descs[i].options.find("reference");
+                    if(ref != descs[i].options.end() && (val.empty() || val=="0"))
+                        sql << descs[i].name << "=NULL";
+                    else
+                        sql << descs[i].name << "=\'" << val << '\'';
+
+                    if(j<collumns_to_set.size()-1)
+                        sql << ", ";
+                }
+            }
+        }
+    }
+    return sql.str();
 }
 
 

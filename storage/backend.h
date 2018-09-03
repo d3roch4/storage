@@ -22,6 +22,10 @@ string sql_create(const string& table_name, vector<mor::DescField> &descs, const
 
 string createSqlSelect(mor::iEntity* entity);
 
+string getSqlInsertImpl(const string& entity_name, vector<shared_ptr<mor::iField> >& columns, vector<mor::DescField>& descs);
+
+string getSqlUpdate(mor::iEntity* entity, const vector<const char*>& collumns_to_set);
+
 template<typename TypeBackend>
 class Backend
 {
@@ -60,21 +64,22 @@ public:
         exec_sql(sql);
     }
 
-    template<class type>
+
+    template<class type> [[deprecated("Replaced by remove<TypeEntity>().where()..., which has an improved interface")]]
     void remove(const string& where) const{
-        type obj;
-        mor::Entity<type>* table = (mor::Entity<type>*) &obj;
-        string sql = "delete from "+table->_entity_name+" where "+where;
+        string sql = "delete from "+mor::Entity<type>::_entity_name+" where "+where;
 
         exec_sql(sql);
     }
 
-    /**
-     * @brief update
-     * @param bean, Objeto os valores a serem atualizado
-     * @param where, string com os parametros de busca dos objetos a serem atualizados.
-     * @param collumns, as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
-     */
+    template<class type>
+    Query<type, Backend<TypeBackend>>& remove(Query<type, Backend<TypeBackend>>&& q={}) const {
+
+        q.db = this;
+        q.sql = "delete from "+mor::Entity<type>::_entity_name;
+        return q;
+    }
+
     template<class type>
     Query<type, Backend<TypeBackend>>& update(type& bean, const vector<const char*>& collumns, Query<type, Backend<TypeBackend>>&& q={}) const
     {
@@ -114,10 +119,12 @@ public:
     }
 
     template<class TypeObj>
-    Query<TypeObj, Backend<TypeBackend>>& select(Query<TypeObj, Backend<TypeBackend>>&& q={}) const
+    Query<TypeObj, Backend<TypeBackend>> select(std::function<void(TypeObj& entity)> callback=nullptr) const
     {
+        Query<TypeObj, Backend<TypeBackend>> q;
         q.db = this;
         q.sql = getSqlSelect<TypeObj>();
+        q.callback = callback;
         return q;
     }
 
@@ -164,69 +171,7 @@ public:
 
     virtual string getSqlInsert(const string& entity_name, vector<shared_ptr<mor::iField> >& columns, vector<mor::DescField>& descs) const
     {
-        std::stringstream sql;
-        sql << "INSERT INTO " << entity_name << '(';
-        for(int i=0; i<columns.size(); i++){
-            const mor::iField* col = columns.at(i).get();
-            if(isPrimaryKey(descs[i]) && col->isNull())
-                continue;
-            sql << descs[i].name;
-            if(i<columns.size()-1)
-                sql << ", ";
-        }
-        sql << ") VALUES (";
-        for(int i=0; i<columns.size(); i++){
-            const mor::iField* col = columns.at(i).get();
-            if(isPrimaryKey(descs[i]) && col->isNull())
-                continue;
-
-            string&& val = col->getValue(descs[i]);
-            boost::replace_all(val, "'", "''");
-
-            sql << '\'' << val << '\'';
-            if(i<columns.size()-1)
-                sql << ", ";
-        }
-        sql << ')';
-        return sql.str();
-    }
-
-    template< class type>
-    string getSqlUpdate(mor::Entity<type>* entity, const vector<const char*>& collumns_to_set) const
-    {
-        std::stringstream sql;
-        sql << "UPDATE " << entity->_entity_name << " SET ";
-        if(collumns_to_set.empty()){
-            for(int i=0; i<entity->_fields.size(); i++){
-                const mor::iField* col = entity->_fields[i].get();
-
-                if(isPrimaryKey(entity->_desc_fields[i]) && col->isNull())
-                    continue;
-
-                string&& val = col->getValue(entity->_desc_fields[i]);
-                boost::replace_all(val, "'", "''");
-
-                sql << entity->_desc_fields[i].name << "=\'" << val << '\'';
-                if(i<entity->_fields.size()-1)
-                    sql << ", ";
-            }
-        }else{
-            for(int j=0; j<collumns_to_set.size(); j++){
-                for(int i=0; i<entity->_fields.size(); i++){
-                    if(collumns_to_set[j] == entity->_desc_fields[i].name){
-                        const mor::iField* col = entity->_fields[i].get();
-
-                        string&& val = col->getValue(entity->_desc_fields[i]);
-                        boost::replace_all(val, "'", "''");
-
-                        sql << entity->_desc_fields[i].name << "=\'" << val << '\'';
-                        if(j<collumns_to_set.size()-1)
-                            sql << ", ";
-                    }
-                }
-            }
-        }
-        return sql.str();
+        return getSqlInsertImpl(entity_name, columns, descs);
     }
 
     template<class type>

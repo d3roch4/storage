@@ -18,8 +18,8 @@ if(BUILD_EXAMPLE)
     add_subdirectory(example)
 endif()
 
-file(GLOB CPP_FILES storage/backend.cpp)
-file(GLOB HPP_FILES storage/backend.h)
+file(GLOB CPP_FILES storage/backend.cpp storage/expression.cpp)
+file(GLOB HPP_FILES storage/backend.h storage/expression.h storage/query.h)
 
 find_package (sqlite3)
 if (SQLITE3_FOUND)

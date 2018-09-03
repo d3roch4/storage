@@ -3,18 +3,27 @@
 #include <sstream>
 #include <vector>
 #include <mor/entity.h>
+#include <functional>
+#include "expression.h"
+
 
 template<class TypeEntity, class TypeBackend>
 struct Query {
     const TypeBackend* db;
     std::string sql;
     mutable bool execulted=false;
+    std::function<void(TypeEntity& entity)> callback = nullptr;
 
     Query(){ }
 
     ~Query() noexcept(false) {
         if(!execulted){
-            db->exec_sql(sql);
+            if(callback != nullptr)
+                db->template exec_sql<TypeEntity>(sql, callback);
+            else
+                db->exec_sql(sql);
+
+            execulted=true;
         }
     }
 
@@ -35,19 +44,49 @@ struct Query {
         return *this;
     }
 
+    Query<TypeEntity, TypeBackend>& where(const std::string& expression){
+        sql += " WHERE "+expression;
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& eq(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        sql += column + "='" +ss.str() + "' ";
+        return *this;
+    }
+
     Query<TypeEntity, TypeBackend>& and_(){
         sql += " AND ";
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& like(const std::string& column, const std::string& value){
+    Query<TypeEntity, TypeBackend>& or_(){
+        sql += " OR ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& like(const std::string &column, const std::string &value){
         sql += column + " LIKE '" + value + "' ";
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& eq(const std::string& column, auto value){
-        std::stringstream ss; ss << value;
-        sql += column + "='" +ss.str() + "' ";
+    Query<TypeEntity, TypeBackend>& in(const std::string &column, const std::string &value){
+        sql += column + " IN ("+value+") ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& not_in(const std::string &column, const std::string &value){
+        sql += column + " NOT IN ("+value+") ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& not_null(const std::string &column){
+        sql += column + " IS NOT NULL ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& is_null(const std::string &column){
+        sql += column + " IS NULL ";
         return *this;
     }
 };

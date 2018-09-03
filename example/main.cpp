@@ -39,16 +39,17 @@ int main()
 
     db.insert(pessoa);
 
-    Pessoa&& localizada = db.select<Pessoa>().where()
-            .eq("idade", 32).and_()
-            .like("nome", "%Silv%");
+    auto query = db.select<Pessoa>();
+    query.where().eq("idade", 32).or_().like("nome", "%Silv%");
+    Pessoa&& localizada = query;
     cout << localizada.nome << " tem " <<localizada.idade<< " id "<< localizada.id << endl;
 
     Pessoa outro;
     outro.nome = "Beotrano";
     db.insert(outro);
 
-    vector<Pessoa>&& vec = db.select<Pessoa>();
+    Expression exp; exp.not_null("pessoa.nome").and_().eq("pessoa.id!", 0);
+    vector<Pessoa>&& vec = db.select<Pessoa>().where(exp);
     for(Pessoa& p: vec)
         cout << p.nome << " tem " << p.idade << " id: " << p.id << std::endl;
 
