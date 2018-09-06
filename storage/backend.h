@@ -139,6 +139,7 @@ public:
     }
 
     template<class TypeObj>
+    [[deprecated("Replaced by select<TypeEntity>().where()...")]]
     void find(const string& where, auto func) const
     {
         static_assert(std::is_base_of<mor::Entity<TypeObj>, TypeObj>::value, "TypeRet is not a list<bean> valid");

@@ -46,7 +46,7 @@ void PostgreSQL::setValues(PGresult* res, const int& row, int& coll, mor::iEntit
 
 string PostgreSQL::exec_sql(const string& sql, mor::iEntity* entity) const
 {
-#if 1//DEBUG
+#if DEBUG
     clog << __PRETTY_FUNCTION__ << sql << endl;
 #endif
     PGconn* conn = connection_.get();
