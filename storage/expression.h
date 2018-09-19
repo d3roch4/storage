@@ -17,6 +17,30 @@ struct Expression : public std::string{
         return *this;
     }
 
+    Expression& gt(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        *this += column + ">'" +ss.str() + "' ";
+        return *this;
+    }
+
+    Expression& ge(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        *this += column + ">='" +ss.str() + "' ";
+        return *this;
+    }
+
+    Expression& lt(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        *this += column + "<'" +ss.str() + "' ";
+        return *this;
+    }
+
+    Expression& le(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        *this += column + "<='" +ss.str() + "' ";
+        return *this;
+    }
+
     Expression& in(const std::string& column, const std::string& value);
 
     Expression& not_in(const std::string& column, const std::string& value);

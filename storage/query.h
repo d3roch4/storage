@@ -89,6 +89,17 @@ struct Query {
         sql += column + " IS NULL ";
         return *this;
     }
+
+    Query<TypeEntity, TypeBackend>& orderBy(const std::string &order){
+        sql += " ORDER BY "+order;
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& limit(const auto& limit){
+        std::stringstream ss; ss << limit;
+        sql += " LIMIT "+ss.str();
+        return *this;
+    }
 };
 
 
