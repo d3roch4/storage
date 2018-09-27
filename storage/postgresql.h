@@ -55,9 +55,14 @@ public:
             for(int l=0; l<rows; l++) {
                 TypeBean obj;
                 table = (mor::Entity<TypeBean>*) &obj ;
-                for(int c=0; c<table->_fields.size(); c++){
+
+                int coll=0;
+                setValues(res, l, coll, table, PQnfields(res));
+
+                /*for(int c=0; c<table->_fields.size(); c++){
                     table->_fields[c]->setValue(PQgetvalue(res, l, PQfnumber(res, table->_desc_fields[c].name.c_str())), table->_desc_fields[c]);
-                }
+                }*/
+
                 ret.emplace_back(std::move(obj));
             }
             PQclear(res);

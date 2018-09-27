@@ -55,6 +55,31 @@ struct Query {
         return *this;
     }
 
+
+    Query<TypeEntity, TypeBackend>& gt(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        sql += column + ">'" +ss.str() + "' ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& ge(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        sql += column + ">='" +ss.str() + "' ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& lt(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        sql += column + "<'" +ss.str() + "' ";
+        return *this;
+    }
+
+    Query<TypeEntity, TypeBackend>& le(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        sql += column + "<='" +ss.str() + "' ";
+        return *this;
+    }
+
     Query<TypeEntity, TypeBackend>& and_(){
         sql += " AND ";
         return *this;

@@ -23,7 +23,7 @@ string getTypeDB(const DescField& desc, const shared_ptr<iField>& fi)
     else if(ti == typeid(short) || ti==typeid(unsigned short))
         return "smallint";
     else if(ti == typeid(bool))
-        return "bit";
+        return "bit(1)";
     else if(ti == typeid(float))
         return "float";
     else if(ti == typeid(double))
