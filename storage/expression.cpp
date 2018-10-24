@@ -35,4 +35,14 @@ Expression &Expression::is_null(const std::string &column){
     return *this;
 }
 
+Expression &Expression::ps(){
+    *this += '(';
+    return *this;
+}
+
+Expression &Expression::pe(){
+    *this += ')';
+    return *this;
+}
+
 

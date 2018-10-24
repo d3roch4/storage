@@ -48,6 +48,11 @@ struct Expression : public std::string{
     Expression& not_null(const std::string& column);
 
     Expression& is_null(const std::string& column);
+
+    Expression& ps();
+
+    Expression& pe();
+
 };
 
 #endif // EXPRESSION_H
