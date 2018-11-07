@@ -125,6 +125,12 @@ struct Query {
         sql += " LIMIT "+ss.str();
         return *this;
     }
+
+    Query<TypeEntity, TypeBackend>& offset(const auto& offset){
+        std::stringstream ss; ss << offset;
+        sql += " OFFSET "+ss.str();
+        return *this;
+    }
 };
 
 

@@ -88,15 +88,15 @@ string sql_create(const string &table_name, vector<DescField>& descs, const vect
             }
         }
         sql_create += ")";
-        for(DescField& desc: descs){
-            auto ref = desc.options.find("reference");
-            if(ref != desc.options.end()){
-                auto fie = desc.options.find("field");
-                if(fie==desc.options.end())
-                    throw_with_trace(runtime_error("field option not found in entity: "+table_name));
-                else
-                    sql_create += ",\nFOREIGN KEY ("+desc.name+") REFERENCES "+ref->second+"("+fie->second+")";
-            }
+    }
+    for(DescField& desc: descs){
+        auto ref = desc.options.find("reference");
+        if(ref != desc.options.end()){
+            auto fie = desc.options.find("field");
+            if(fie==desc.options.end())
+                throw_with_trace(runtime_error("field option not found in entity: "+table_name));
+            else
+                sql_create += ",\nFOREIGN KEY ("+desc.name+") REFERENCES "+ref->second+"("+fie->second+")";
         }
     }
     /*if(table->_vecFK.size()){
