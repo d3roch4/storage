@@ -17,6 +17,12 @@ struct Expression : public std::string{
         return *this;
     }
 
+    Expression& nq(const std::string& column, const auto& value){
+        std::stringstream ss; ss << value;
+        *this += column + "<>'" +ss.str() + "' ";
+        return *this;
+    }
+
     Expression& gt(const std::string& column, const auto& value){
         std::stringstream ss; ss << value;
         *this += column + ">'" +ss.str() + "' ";
