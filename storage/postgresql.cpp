@@ -29,19 +29,17 @@ void PostgreSQL::close()
 
 void PostgreSQL::setValues(PGresult* res, const int& row, int& coll, mor::iEntity* entity, int nColl) const
 {
-    vector<mor::iEntity*> entityesJoin;
     auto&& vecDesc = entity->_get_desc_fields();
     for(int j=0; j<vecDesc.size() && coll<nColl; j++){
         DescField& desc = entity->_get_desc_fields()[j];
         auto&& ref = desc.options.find("reference");
         if(ref != desc.options.end())
-            entityesJoin.push_back((mor::iEntity*)entity->_get_fields()[j]->value);
-        else
+            setValues(res, row, coll, (mor::iEntity*)entity->_get_fields()[j]->value, nColl);
+        else{
             entity->_get_fields()[j]->setValue(PQgetvalue(res, row, coll), desc);
-        coll++;
+            coll++;
+        }
     }
-    for(iEntity* ent: entityesJoin)
-        setValues(res, row, coll, ent, nColl);
 }
 
 string PostgreSQL::exec_sql(const string& sql, mor::iEntity* entity) const

@@ -21,6 +21,18 @@ public:
     }
 };
 
+struct Empresa : Entity<Empresa>
+{
+    string nome;
+    Pessoa dono;
+    string endereco;
+
+    Empresa(){
+        field(nome, "nome");
+        field(&dono, "dono", {{"reference", "pessoa"}, {"field", "id"}});
+        field(endereco, "endereco");
+    }
+};
 
 
 int main()
@@ -32,6 +44,7 @@ int main()
     PostgreSQL db;
     db.connection("host=localhost dbname=teste user=postgres password=postgres");
     db.create<Pessoa>();
+    db.create<Empresa>();
 
     Pessoa pessoa;
     pessoa.nome = "Silva Siqueira";
@@ -56,13 +69,26 @@ int main()
 
     outro.id=0;
     outro.nome = "Outro";
-    db.update(outro).where().eq("id", 1);
+    //db.update(outro).where().eq("id", 1);
 
 
     vec = db.select<Pessoa>();
     for(Pessoa& p: vec)
         cout << p.nome << " tem " << p.idade << " id> " << p.id << std::endl;
 
+
+    Empresa empresa;
+    empresa.nome = "Corporação Max";
+    empresa.dono = pessoa;
+    empresa.endereco = "Rua de Jesus";
+
+    db.insert(empresa);
+    db.select<Empresa>([](Empresa& emp){
+        cout << emp.nome << ", dono: " << emp.dono.nome <<
+                ", local: " << emp.endereco << endl;
+    });
+
+    db.drop<Empresa>();
     db.drop<Pessoa>();
     return 0;
 }

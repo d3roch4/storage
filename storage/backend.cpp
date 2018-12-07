@@ -118,14 +118,15 @@ string sql_create(const string &table_name, vector<DescField>& descs, const vect
 
 void putCollumnsSelect(mor::iEntity *entity, string& sql)
 {
-    sql += entity->_get_name()+".* ";
     auto&& vecDesc = entity->_get_desc_fields();
     for(int i=0; i<vecDesc.size(); i++){
         mor::DescField& desc = vecDesc[i];
         auto&& ref = desc.options.find("reference");
         if(ref != desc.options.end()){
-            sql += ", ";
             putCollumnsSelect((iEntity*)entity->_get_fields()[i]->value, sql);
+        }else{
+            sql += entity->_get_name()+"."+desc.name;
+            sql += ", ";
         }
     }
 }
@@ -150,6 +151,7 @@ std::string createSqlSelect(mor::iEntity* entity)
     set<string> joinsRelations;
     string sql = "SELECT ";
     putCollumnsSelect(entity, sql);
+    sql = sql.substr(0, sql.size()-2);
     sql += "\nFROM "+entity->_get_name();
     putJoinsSelect(entity, sql, joinsRelations);
     entity->_get_atrributes()["sql_select"] = sql;
