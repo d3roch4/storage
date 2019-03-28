@@ -2,8 +2,6 @@
 
 #include "postgresql.h"
 
-using namespace mor;
-
 namespace storage
 {
 
@@ -27,24 +25,7 @@ void PostgreSQL::close()
     connection_.vecConn.clear();
 }
 
-void PostgreSQL::setValues(PGresult* res, const int& row, int& coll, mor::iEntity* entity, int nColl) const
-{
-    vector<mor::iEntity*> entityesJoin;
-    auto&& vecDesc = entity->_get_desc_fields();
-    for(int j=0; j<vecDesc.size() && coll<nColl; j++){
-        DescField& desc = entity->_get_desc_fields()[j];
-        auto&& ref = desc.options.find("reference");
-        if(ref != desc.options.end())
-            entityesJoin.push_back((mor::iEntity*)entity->_get_fields()[j]->value);
-        else
-            entity->_get_fields()[j]->setValue(PQgetvalue(res, row, coll), desc);
-        coll++;
-    }
-    for(iEntity* ent: entityesJoin)
-        setValues(res, row, coll, ent, nColl);
-}
-
-string PostgreSQL::exec_sql(const string& sql, mor::iEntity* entity) const
+string PostgreSQL::exec_sql(const string &sql) const
 {
 #if DEBUG
     clog << __PRETTY_FUNCTION__ << sql << endl;
@@ -53,11 +34,6 @@ string PostgreSQL::exec_sql(const string& sql, mor::iEntity* entity) const
     PGresult* res = PQexec(conn, sql.c_str());
     bool ok = verifyResult(res);
     connection_.release(conn);
-
-    if(ok && PQntuples(res)>0 && entity!=NULL){
-        int coll=0;
-        setValues(res, 0, coll, entity, PQnfields(res));
-    }
 
     string rowsAffected = PQcmdTuples(res);
     PQclear(res);
@@ -91,11 +67,7 @@ void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int
         throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
 }
 
-string PostgreSQL::getSqlInsert(const string &entity_name, vector<shared_ptr<iField> > &columns, vector<DescField>& descs) const
-{
-    const string& pks = getListPK(descs);
-    return Backend<PostgreSQL>::getSqlInsert(entity_name, columns, descs) + (pks.size()?" RETURNING "+pks:"");
-}
+
 
 bool PostgreSQL::verifyResult(PGresult* res) const{
     ExecStatusType status = PQresultStatus(res);

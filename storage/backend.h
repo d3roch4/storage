@@ -3,28 +3,35 @@
 
 #include <memory>
 #include <functional>
-#include <mor/entity.h>
 #include <boost/algorithm/string/replace.hpp>
 #include "query.h"
+#include <chrono>
+#include "functions.h"
+#include <mor/mor.h>
+#include <d3util/datetime.h>
 
 namespace storage
 {
-
 using namespace std;
 
-bool isPrimaryKey(const mor::DescField& desc);
+/*
+bool isPrimaryKey(iannotations* annotations);
 
-bool isIndexed(const mor::DescField& desc);
+bool isIndexed(iannotations* annotations);
 
-string getTypeDB(const mor::DescField &desc, const shared_ptr<mor::iField>& fi);
+string createSqlSelect(iannotations* annotations);
 
-string sql_create(const string& table_name, vector<mor::DescField> &descs, const vector<shared_ptr<mor::iField>>& fields);
+string getSqlInsertImpl(iannotations* annotations);
 
-string createSqlSelect(mor::iEntity* entity);
+string getSqlUpdate(iannotations* annotations, const vector<const char*>& collumns_to_set);
+*/
 
-string getSqlInsertImpl(const string& entity_name, vector<shared_ptr<mor::iField> >& columns, vector<mor::DescField>& descs);
+template<class T>
+bool isNull(T val){
+    return !val;
+}
 
-string getSqlUpdate(mor::iEntity* entity, const vector<const char*>& collumns_to_set);
+bool isNull(std::string str);
 
 template<typename TypeBackend>
 class Backend
@@ -33,8 +40,24 @@ class Backend
 public:
     Backend(){}
 
+    static TypeBackend& getInstance()
+    {
+        if(instance == nullptr){
+            instance = shared_ptr<TypeBackend>(new TypeBackend());
+        }
+        return *instance;
+    }
 
-    virtual string exec_sql(const string& sql, mor::iEntity* entity = 0) const = 0;
+    string exec_sql(const string& sql) const
+    {
+        return ((TypeBackend*)this)->template exec_sql(sql);
+    }
+
+    template<class T>
+    string exec_sql(const string& sql, T* entity) const
+    {
+        return ((TypeBackend*)this)->template exec_sql(sql, entity);
+    }
 
     template<class TypeRet>
     TypeRet exec_sql(const string& sql) const
@@ -50,72 +73,9 @@ public:
 
     template<class type>
     void create() const{
-        const type obj;
-        mor::Entity<type>* table = (mor::Entity<type>*) &obj;
-        const string& sql = sql_create(table->_entity_name, table->_desc_fields, table->_fields);
+        type obj;
+        const string& sql = sql_create(obj);
         exec_sql(sql);
-    }
-
-    template<class type>
-    void drop() const{
-        const type obj;
-        string sql = "DROP TABLE IF EXISTS "+mor::Entity<type>::_entity_name;
-
-        exec_sql(sql);
-    }
-
-
-    template<class type> [[deprecated("Replaced by remove<TypeEntity>().where()..., which has an improved interface")]]
-    void remove(const string& where) const{
-        string sql = "delete from "+mor::Entity<type>::_entity_name+" where "+where;
-
-        exec_sql(sql);
-    }
-
-    template<class type>
-    Query<type, Backend<TypeBackend>>& remove(Query<type, Backend<TypeBackend>>&& q={}) const {
-
-        q.db = this;
-        q.sql = "delete from "+mor::Entity<type>::_entity_name;
-        return q;
-    }
-
-    template<class type>
-    Query<type, Backend<TypeBackend>>& update(type& bean, const vector<const char*>& collumns, Query<type, Backend<TypeBackend>>&& q={}) const
-    {
-        mor::Entity<type>* entity = (mor::Entity<type>*) &bean;
-        const string& sql = getSqlUpdate(entity, collumns);
-
-        q.db = this;
-        q.sql = sql;
-        return q;
-    }
-
-    /**
-     * @brief update
-     * @param bean, Objeto os valores a serem atualizado
-     * @param where, string com os parametros de busca dos objetos a serem atualizados.
-     * @param colls..., as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
-     */
-    template<class TypeObj, typename... Args>
-    Query<TypeObj, Backend<TypeBackend>> update(TypeObj& bean, const Args&... colls) const
-    {
-        std::initializer_list<const char*> inputs({colls...});
-        vector<const char*> collumns(inputs);
-        mor::Entity<TypeObj>* entity = (mor::Entity<TypeObj>*) &bean;
-
-        Query<TypeObj, Backend<TypeBackend>> q;
-        q.db = this;
-        q.sql = getSqlUpdate(entity, collumns);
-        return q;
-    }
-
-    template<class type>
-    void insert(type& bean) const{
-        mor::Entity<type>* table = (mor::Entity<type>*) &bean;
-        const string& sql = getSqlInsert(table->_entity_name, table->_fields, table->_desc_fields);
-
-        exec_sql(sql, table);
     }
 
     template<class TypeObj>
@@ -128,82 +88,239 @@ public:
         return q;
     }
 
-    template<class TypeObj, class TypeRet=vector<TypeObj>>
-    TypeRet find(const string& where="") const
+    template<class type>
+    Query<type, Backend<TypeBackend>>& update(type& bean, Query<type, Backend<TypeBackend>>&& q={}) const
     {
-        static_assert(std::is_base_of<mor::Entity<TypeObj>, TypeObj>::value, "TypeRet is not a list<bean> valid");
+        std::stringstream sql;
+        sql << "UPDATE " << ((Entity*)type::annotations::get_entity())->name<< " SET ";
 
-        string sql = getSqlSelect<TypeObj>()+' '+where;
+        reflector::visit_each(bean, update_each{sql});
 
-        return exec_sql<TypeRet>(sql);
-    }
-
-    template<class TypeObj>
-    [[deprecated("Replaced by select<TypeEntity>().where()...")]]
-    void find(const string& where, auto func) const
-    {
-        static_assert(std::is_base_of<mor::Entity<TypeObj>, TypeObj>::value, "TypeRet is not a list<bean> valid");
-
-        string sql = getSqlSelect<TypeObj>();
-        sql += ' '+where;
-
-        return exec_sql<TypeObj>(sql, func);
-    }
-
-    static TypeBackend& getInstance()
-    {
-        if(instance == nullptr){
-            instance = shared_ptr<TypeBackend>(new TypeBackend());
-        }
-        return *instance;
-    }
-
-    template<class T>
-    string getSqlSelect() const
-    {
-        auto&& it = mor::Entity<T>::_atrributes.find("sql_select");
-        if(it!=mor::Entity<T>::_atrributes.end())
-            return boost::any_cast<string>(it->second);
-        else{
-            T entity;
-            return createSqlSelect(&entity);
-        }
-    }
-
-    virtual string getSqlInsert(const string& entity_name, vector<shared_ptr<mor::iField> >& columns, vector<mor::DescField>& descs) const
-    {
-        return getSqlInsertImpl(entity_name, columns, descs);
+        q.db = this;
+        q.sql = sql.str();
+        return q;
     }
 
     template<class type>
-    string getWherePK(mor::Entity<type>* entity) const
+    void insert(type& bean) const{
+        const string& sql = ((TypeBackend*)this)->getSqlInsert(bean);
+        exec_sql(sql, &bean);
+    }
+
+    template<class type>
+    Query<type, Backend<TypeBackend>>& remove(Query<type, Backend<TypeBackend>>&& q={}) const {
+        q.db = this;
+        q.sql = "DELETE FROM "+((Entity*)type::annotations::get_entity())->name;
+        return q;
+    }
+
+    template<class type>
+    void drop() const{
+      string sql = "DROP TABLE IF EXISTS "+((Entity*)type::annotations::get_entity())->name;
+      exec_sql(sql);
+    }
+
+    template<class T>
+    struct GetValueStr
     {
+        const T& value;
+        Reference* ref{};
+        string str;
+
+        template <class V>
+        auto get(const V& value) noexcept -> std::enable_if_t<is_simple_or_datatime_type<V>::value>
+        {
+            str = to_string(value);
+        }
+
+        template <class V>
+        auto get(const V& value) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<V>::value>
+        {
+            if(ref){
+                reflector::visit_each(value, *this);
+            }
+        }
+
+        template<class FieldData, class Annotations>
+        void operator()(FieldData f, Annotations a, int lenght)
+        {
+            if(ref->field == f.name()){
+                auto val = f.get();
+                get(val);
+            }
+        }
+
+        operator string (){
+            get(value);
+            return str;
+        }
+    };
+
+
+    struct update_each
+    {
+        std::stringstream& sql;
+        update_each(std::stringstream& sql) : sql(sql){}
+        int i=0;
+
+        template<class FieldData, class Annotations>
+        void operator()(FieldData f, Annotations a, int lenght)
+        {
+            Reference* ref = f.annotation();
+            string val = GetValueStr<typename FieldData::type>{f.get(), ref};
+            if( ((PrimaryKey*)f.annotation())!=nullptr
+                    && (val.empty() || val=="0") )
+                return;
+
+            if(i++!=0)
+                sql << ", ";
+
+            Type* type = f.annotation();
+
+            if(ref && (val.empty() || val=="0"))
+                sql << f.name() << "=NULL";
+            else if(type && type->name == "tsvector" && !val.empty())
+                sql << f.name() << '=' << val;
+            else{
+                boost::replace_all(val, "'", "''");
+                sql << f.name() << "=\'" << val << '\'';
+            }
+        }
+    };
+
+    struct insert_each
+    {
+        std::string columns;
+        std::string values;
+
+        template<class FieldData, class Annotations>
+        void operator()(FieldData f, Annotations a, int lenght)
+        {
+            Reference* ref = f.annotation();
+            string val = GetValueStr<typename FieldData::type>{f.get(), ref};
+
+            if( ((PrimaryKey*)f.annotation())!=nullptr
+                    && (val.empty() || val =="0") )
+                return;
+
+            if(columns.size())
+                columns += ", ";
+            columns += f.name();
+
+            if(values.size())
+                values += ", ";
+
+            Type* type = f.annotation();
+
+            if(ref && (val.empty() || val =="0"))
+                values += "NULL";
+            else if(type && type->name == "tsvector" && !val.empty())
+                values += val;
+            else{
+                boost::replace_all(val, "'", "''");
+                values += '\'' + val + '\'';
+            }
+        }
+    };
+
+    template<class T>
+    string getSqlInsertBase(T& bean) const
+    {
+        insert_each ie;
+        reflector::visit_each(bean, ie);
+        std::string sql = "INSERT INTO " + ((Entity*)T::annotations::get_entity())->name + '(';
+        sql += ie.columns;
+        sql += ") VALUES (" +ie.values+ ')';
+        return sql;
+    }
+
+    template<class T>
+    struct getListPK
+    {
+        T& obj;
+        string pks;
+
+        getListPK(T& obj) : obj(obj){}
+
+        template<class FieldData, class Annotations>
+        void operator()(FieldData f, Annotations a, int lenght)
+        {
+            if(((PrimaryKey*)f.annotation())){
+                if(pks.size())
+                    pks += ", ";
+                pks += f.name();
+            }
+        }
+
+        operator string (){
+            reflector::visit_each(obj, *this);
+            return pks;
+        }
+    };
+
+/*
+
+
+    /**
+     * @brief update
+     * @param bean, Objeto os valores a serem atualizado
+     * @param where, string com os parametros de busca dos objetos a serem atualizados.
+     * @param colls..., as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
+     */
+    /*template<class TypeObj, typename... Args>
+    Query<TypeObj, Backend<TypeBackend>> update(TypeObj& bean, const Args&... colls) const
+    {
+        std::initializer_list<const char*> inputs({colls...});
+        vector<const char*> collumns(inputs);
+
+        Query<TypeObj, Backend<TypeBackend>> q;
+        q.db = this;
+        q.sql = getSqlUpdate(bean, collumns);
+        return q;
+    }
+
+
+    template<class type> [[deprecated("Replaced by remove<TypeEntity>().where()..., which has an improved interface")]]
+    void remove(const string& where) const{
+        string sql = "delete from "+
+                ((Entity)type::annotation::get_entity()).name
+                +" where "+where;
+
+        exec_sql(sql);
+    }
+
+    template<class type>
+    Query<type, Backend<TypeBackend>>& remove(Query<type, Backend<TypeBackend>>&& q={}) const {
+
+        q.db = this;
+        q.sql = "delete from "+((Entity)type::annotation::get_entity()).name;
+        return q;
+    }
+
+    struct eachGetWherePK{
         string where;
-        for(int i=0; i<entity->_fields.size(); i++){
-            mor::iField* col = entity->_fields.at(i).get();
-            if(isPrimaryKey(entity->_desc_fields[i]))
-                where += entity->_desc_fields[i].name
-                        +"='"+col->getValue(entity->_desc_fields[i])
+
+        template<class FieldData, class Annotations>
+        void operator()(FieldData f, Annotations a, int lenght)
+        {
+            if(((PrimaryKey*)Annotations::get_field(f.name())))
+                where += f.name()
+                        +"='"+to_string(f.get())
                         +"' AND ";
         }
+    };
 
-        if(where.size())
-            where[where.size()-4] = '\0';
-        return where;
-    }
-
-    string getListPK(vector<mor::DescField>& descs) const
+    template<class type>
+    string getWherePK(type& obj) const
     {
-        string pks;
-        for(int i=0; i<descs.size(); i++){
-            if(isPrimaryKey(descs[i]))
-                pks += descs[i].name + ", ";
-        }
-        if(pks.size())
-            pks[pks.size()-2] = '\0';
-        return pks;
-    }
+        eachGetWherePK wpk;
+        reflector::visit_each(obj, wpk);
 
+        if(wpk.where.size())
+            wpk.where[wpk.where.size()-4] = '\0';
+        return wpk.where;
+    }
+*/
 
 };
 
@@ -216,3 +333,5 @@ shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
 
 }
 #endif // BACKEND_H
+
+

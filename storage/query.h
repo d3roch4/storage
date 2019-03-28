@@ -1,11 +1,10 @@
 #ifndef QUERY_H
 #define QUERY_H
-#include <sstream>
-#include <vector>
-#include <mor/entity.h>
-#include <functional>
 #include "expression.h"
-
+#include <sstream>
+#include <list>
+#include <functional>
+#include <vector>
 
 template<class TypeEntity, class TypeBackend>
 struct Query {
@@ -21,7 +20,7 @@ struct Query {
             if(callback != nullptr)
                 db->template exec_sql<TypeEntity>(sql, callback);
             else
-                db->exec_sql(sql);
+                db->template exec_sql(sql);
 
             execulted=true;
         }
@@ -34,9 +33,9 @@ struct Query {
         return obj;
     }
 
-    operator std::vector<TypeEntity>() const {
+    operator std::list<TypeEntity>() const {
         execulted=true;
-        return db->template exec_sql< std::vector<TypeEntity> >(sql);
+        return db->template exec_sql< std::list<TypeEntity> >(sql);
     }
 
     Query<TypeEntity, TypeBackend>& where(){
@@ -45,36 +44,41 @@ struct Query {
     }
 
     Query<TypeEntity, TypeBackend>& where(const std::string& expression){
-        sql += " WHERE "+expression;
+        if(expression.size())
+            sql += " WHERE "+expression;
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& eq(const std::string& column, const auto& value){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& eq(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + "='" +ss.str() + "' ";
         return *this;
     }
 
-
-    Query<TypeEntity, TypeBackend>& gt(const std::string& column, const auto& value){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& gt(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + ">'" +ss.str() + "' ";
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& ge(const std::string& column, const auto& value){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& ge(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + ">='" +ss.str() + "' ";
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& lt(const std::string& column, const auto& value){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& lt(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + "<'" +ss.str() + "' ";
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& le(const std::string& column, const auto& value){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& le(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + "<='" +ss.str() + "' ";
         return *this;
@@ -120,13 +124,15 @@ struct Query {
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& limit(const auto& limit){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& limit(const V& limit){
         std::stringstream ss; ss << limit;
         sql += " LIMIT "+ss.str();
         return *this;
     }
 
-    Query<TypeEntity, TypeBackend>& offset(const auto& offset){
+    template<class V>
+    Query<TypeEntity, TypeBackend>& offset(const V& offset){
         std::stringstream ss; ss << offset;
         sql += " OFFSET "+ss.str();
         return *this;
