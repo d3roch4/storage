@@ -11,37 +11,43 @@ struct Expression : public std::string{
 
     Expression& like(const std::string& column, const std::string& value);
 
-    Expression& eq(const std::string& column, const auto& value){
+    template<class V>
+    Expression& eq(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + "='" +ss.str() + "' ";
         return *this;
     }
 
-    Expression& nq(const std::string& column, const auto& value){
+    template<class V>
+    Expression& nq(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + "<>'" +ss.str() + "' ";
         return *this;
     }
 
-    Expression& gt(const std::string& column, const auto& value){
+    template<class V>
+    Expression& gt(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + ">'" +ss.str() + "' ";
         return *this;
     }
 
-    Expression& ge(const std::string& column, const auto& value){
+    template<class V>
+    Expression& ge(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + ">='" +ss.str() + "' ";
         return *this;
     }
 
-    Expression& lt(const std::string& column, const auto& value){
+    template<class V>
+    Expression& lt(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + "<'" +ss.str() + "' ";
         return *this;
     }
 
-    Expression& le(const std::string& column, const auto& value){
+    template<class V>
+    Expression& le(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         *this += column + "<='" +ss.str() + "' ";
         return *this;
