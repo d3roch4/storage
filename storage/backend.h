@@ -50,7 +50,7 @@ public:
 
     string exec_sql(const string& sql) const
     {
-        return ((TypeBackend*)this)->template exec_sql(sql);
+        return ((TypeBackend*)this)->exec_sql(sql);
     }
 
     template<class T>
@@ -75,7 +75,7 @@ public:
     void create() const{
         type obj;
         const string& sql = sql_create(obj);
-        exec_sql(sql);
+        this->exec_sql(sql);
     }
 
     template<class TypeObj>

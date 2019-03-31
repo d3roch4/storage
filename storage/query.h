@@ -20,7 +20,7 @@ struct Query {
             if(callback != nullptr)
                 db->template exec_sql<TypeEntity>(sql, callback);
             else
-                db->template exec_sql(sql);
+                db->exec_sql(sql);
 
             execulted=true;
         }

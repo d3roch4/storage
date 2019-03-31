@@ -177,10 +177,8 @@ private:
         template<class FieldData, class Annotations>
         void operator()(FieldData f, Annotations a, int lenght)
         {
-//            const char* fn = f.name();
-//            const char* cn = PQfname(res, coll);
-//            bool cmpfncn = cn && (strcmp(fn, cn)==0);
-            ref = a.get_field(f.name());
+           const char* nome = f.name();
+            ref = a.get_field(nome);
             if(coll < nColl){
                 auto& val = f.get();
                 putValue(val, lenght);
