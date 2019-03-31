@@ -57,6 +57,7 @@ int main()
     db.create<Avo>();
     db.create<Pai>();
     db.create<Pessoa>();
+    db.create<Empresa>();
 
     Pessoa pessoa;
     pessoa.nome = "Silva Siqueira";
@@ -101,6 +102,19 @@ int main()
         cout << '*' << p.nome << " tem " << p.idade << " pai: "<<p.parente.id<< " id> " << p.id << std::endl;
     });
 
+
+    Empresa empresa;
+    empresa.nome = "Corporação Max";
+    empresa.dono = pessoa;
+    empresa.endereco = "Rua de Jesus";
+
+    db.insert(empresa);
+    db.select<Empresa>([](Empresa& emp){
+        cout << emp.nome << ", dono: " << emp.dono.nome <<
+                ", local: " << emp.endereco << endl;
+    });
+
+    db.drop<Empresa>();
     db.drop<Pessoa>();
     db.drop<Pai>();
     db.drop<Avo>();

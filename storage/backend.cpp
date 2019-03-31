@@ -24,8 +24,7 @@ struct insertColumns{
             names += ", ";
 
         string&& val = to_string(f.get());
-        boost::replace_all(val, "'", "''");
-
+        boost::replace_all(val, "'", "''");\
         Reference* ref = f.annotation();
         if(ref && (val.empty() || val =="0"))
             values += "NULL";
