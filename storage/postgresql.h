@@ -116,7 +116,7 @@ public:
         const string& pks = getListPK<T>(bean);
         return Backend<PostgreSQL>::getSqlInsertBase<T>(bean) + (pks.size()?" RETURNING "+pks:"");
     }
-private:
+
     struct setValues
     {
         PGresult* res;
@@ -185,6 +185,7 @@ private:
             }
         }
     };
+private:
 
     bool verifyResult(PGresult* res) const;
 };
