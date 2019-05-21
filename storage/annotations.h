@@ -6,7 +6,11 @@ struct PrimaryKey{};
 
 struct NotNull{};
 
-struct Indexed{};
+struct Indexed
+{
+    std::string using_;
+    Indexed(std::string using_ =  {}) : using_(using_){}
+};
 
 struct Type
 {

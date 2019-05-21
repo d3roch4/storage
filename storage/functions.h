@@ -192,42 +192,46 @@ struct eachCreate{
     template<class FieldData, class Annotations>
     void operator()(FieldData f, Annotations a, int lenght)
     {
-        Type* type = Annotations::get_field(f.name());
+        const string& name = f.name();
+        Type* type = Annotations::get_field(name.c_str());
 
-        columns += f.name(); columns += ' ';
+        columns += name; columns += ' ';
         if(type)
             columns += type->name;
         else{
             const auto& v = f.get();
-            columns += getTypeDB(v, a, f.name());
+            columns += getTypeDB(v, a, name.c_str());
         }
 
-        if(((NotNull*) Annotations::get_field(f.name())))
+        if(((NotNull*) Annotations::get_field(name.c_str())))
             columns += " NOT NULL ";
         if(i<lenght-1)
             columns+=",\n";
 
-        if((PrimaryKey*) Annotations::get_field(f.name())){
-            constraints += f.name();
+        if((PrimaryKey*) Annotations::get_field(name.c_str())){
+            constraints += name;
             constraints += ", ";
         }
 
-        Reference* ref =  Annotations::get_field(f.name());
+        Reference* ref =  Annotations::get_field(name.c_str());
         if(ref){
             if(ref->field.empty()){
                 const string s = "field option not found in entity: "+((Entity*)Annotations::get_entity())->name;
                 throw_with_trace(runtime_error(s));
             }else{
                 references += ",\nFOREIGN KEY (";
-                references += f.name();
+                references += name;
                 references += ") REFERENCES "+ref->entity+"("+ref->field+")";
             }
         }
 
-        if((Indexed*) Annotations::get_field(f.name())){
-            indexes += "CREATE INDEX IF NOT EXISTS idx_";
-            indexes += +f.name();
-            indexes += " ON "+((Entity*)Annotations::get_entity())->name+'('+f.name()+");\n";
+        Indexed* idx = Annotations::get_field(name.c_str());
+        if(idx){
+            const string& entity  = ((Entity*)Annotations::get_entity())->name;
+            indexes += "CREATE INDEX IF NOT EXISTS idx_"+entity+'_';
+            indexes += name;
+            indexes += " ON "+entity+ 
+                (idx->using_.empty() ? '('+name+");\n" : " USING "+idx->using_);
         }
 
         i++;
