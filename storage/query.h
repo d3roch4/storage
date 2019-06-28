@@ -57,6 +57,13 @@ struct Query {
     }
 
     template<class V>
+    Query<TypeEntity, TypeBackend>& nq(const std::string& column, const V& value){
+        std::stringstream ss; ss << value;
+        sql += column + "<>'" +ss.str() + "' ";
+        return *this;
+    }
+
+    template<class V>
     Query<TypeEntity, TypeBackend>& gt(const std::string& column, const V& value){
         std::stringstream ss; ss << value;
         sql += column + ">'" +ss.str() + "' ";
