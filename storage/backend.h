@@ -257,80 +257,10 @@ public:
             return pks;
         }
     };
-
-/*
-
-
-    /**
-     * @brief update
-     * @param bean, Objeto os valores a serem atualizado
-     * @param where, string com os parametros de busca dos objetos a serem atualizados.
-     * @param colls..., as colunas que seram atualizadas, caso nenuma seja inforamda todas as colunas seram atualizadas
-     */
-    /*template<class TypeObj, typename... Args>
-    Query<TypeObj, Backend<TypeBackend>> update(TypeObj& bean, const Args&... colls) const
-    {
-        std::initializer_list<const char*> inputs({colls...});
-        vector<const char*> collumns(inputs);
-
-        Query<TypeObj, Backend<TypeBackend>> q;
-        q.db = this;
-        q.sql = getSqlUpdate(bean, collumns);
-        return q;
-    }
-
-
-    template<class type> [[deprecated("Replaced by remove<TypeEntity>().where()..., which has an improved interface")]]
-    void remove(const string& where) const{
-        string sql = "delete from "+
-                ((Entity)type::annotation::get_entity()).name
-                +" where "+where;
-
-        exec_sql(sql);
-    }
-
-    template<class type>
-    Query<type, Backend<TypeBackend>>& remove(Query<type, Backend<TypeBackend>>&& q={}) const {
-
-        q.db = this;
-        q.sql = "delete from "+((Entity)type::annotation::get_entity()).name;
-        return q;
-    }
-
-    struct eachGetWherePK{
-        string where;
-
-        template<class FieldData, class Annotations>
-        void operator()(FieldData f, Annotations a, int lenght)
-        {
-            if(((PrimaryKey*)Annotations::get_field(f.name())))
-                where += f.name()
-                        +"='"+to_string(f.get())
-                        +"' AND ";
-        }
-    };
-
-    template<class type>
-    string getWherePK(type& obj) const
-    {
-        eachGetWherePK wpk;
-        reflector::visit_each(obj, wpk);
-
-        if(wpk.where.size())
-            wpk.where[wpk.where.size()-4] = '\0';
-        return wpk.where;
-    }
-*/
-
 };
 
 template<typename TypeBackend>
 shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
-
-//template<typename TypeBackend>
-//string Backend<TypeBackend>::connection;
-
-
 }
 #endif // BACKEND_H
 

@@ -175,6 +175,7 @@ struct getTypeDB_s{
         }
 
         throw_with_trace(runtime_error("getTypeDB: type not implemented for: "+name));
+        return "";
     }
 
     operator string () {

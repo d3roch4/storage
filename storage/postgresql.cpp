@@ -46,9 +46,6 @@ string PostgreSQL::exec_sql(const string &sql) const
 
 void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int, bool&)> callback)
 {
-#if DEBUG
-    clog << __PRETTY_FUNCTION__ << sql << endl;
-#endif
     PGconn* conn = connection_.get();
     PGresult* res = PQexec(conn, sql.c_str());
     bool ok = verifyResult(res);
@@ -63,8 +60,13 @@ void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int
         }
     }
     PQclear(res);
-    if(!ok)
-        throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
+    if(!ok){
+        string err = "PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql;
+#if 1//DEBUG
+        clog << __PRETTY_FUNCTION__ << err << endl;
+#endif
+        throw_with_trace( runtime_error(err) );
+    }
 }
 
 
