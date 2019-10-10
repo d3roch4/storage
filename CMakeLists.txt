@@ -8,11 +8,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CXXFLAGS} $ENV{CPPFLAGS}")
 
 option(BUILD_EXAMPLE "Build example code" OFF)
 
-if(NOT TARGET mor)
-    add_subdirectory(../mor mor)
-endif()
 if(NOT TARGET d3util)
-    add_subdirectory(../d3util d3util)
+    add_subdirectory(deps/d3util d3util)
 endif()
 
 if(BUILD_EXAMPLE)
@@ -47,7 +44,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 include_directories(src ${Boost_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} mor d3util )
+target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util )
 target_include_directories(${PROJECT_NAME} PUBLIC ./)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib)
