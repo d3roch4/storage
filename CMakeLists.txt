@@ -27,11 +27,12 @@ if (SQLITE3_FOUND)
 endif (SQLITE3_FOUND)
 
 find_package(PostgreSQL)
-if (TRUE)
+if (PostgreSQL_FOUND)
   set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.h)
-  include_directories(${PostgreSQL_INCLUDE_DIRS})
-  set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} PRIVATE pq)
+  set(INCLUDE_DIRS ${INCLUDE_DIRS} ${PostgreSQL_INCLUDE_DIRS})
+  set(LIBRARY_DIRS ${LIBRARY_DIRS} ${PostgreSQL_LIBRARY_DIRS})
+  set(LIBRARIES_FOR_BACKEND ${LIBRARIES_FOR_BACKEND} ${PostgreSQL_LIBRARIES})
 endif ()
 
 message(STATUS "LIBRARIES_FOR_BACKEND: ${LIBRARIES_FOR_BACKEND}")
@@ -40,12 +41,13 @@ if(NOT LIBRARIES_FOR_BACKEND)
 endif()
 
 add_compile_definitions(BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED=1)
-find_package(Boost REQUIRED COMPONENTS system)
-include_directories(src ${Boost_INCLUDE_DIRS})
+find_package(Boost REQUIRED)
+include_directories(src ${Boost_INCLUDE_DIRS} ${INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} ${CPP_FILES} ${HPP_FILES})
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util )
-target_include_directories(${PROJECT_NAME} PUBLIC ./)
+target_include_directories(${PROJECT_NAME} PUBLIC ./ ${INCLUDE_DIRS})
+#target_link_directories(${PROJECT_NAME} PUBLIC ${LIBRARY_DIRS})
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 install(FILES ${HPP_FILES} DESTINATION include/${PROJECT_NAME})

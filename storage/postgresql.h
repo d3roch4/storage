@@ -2,7 +2,7 @@
 #define POSTGRESQL_H
 
 #include "backend.h"
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_MSC_VER)
 #   include <libpq-fe.h>
 #else
 #   include <postgresql/libpq-fe.h>
