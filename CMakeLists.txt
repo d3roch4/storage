@@ -27,7 +27,7 @@ if (SQLITE3_FOUND)
 endif (SQLITE3_FOUND)
 
 find_package(PostgreSQL)
-if (PostgreSQL_FOUND)
+if (TRUE) # (PostgreSQL_FOUND)
   set(CPP_FILES ${CPP_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/storage/postgresql.h)
   set(INCLUDE_DIRS ${INCLUDE_DIRS} ${PostgreSQL_INCLUDE_DIRS})
