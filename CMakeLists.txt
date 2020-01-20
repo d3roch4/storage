@@ -41,11 +41,11 @@ if(NOT LIBRARIES_FOR_BACKEND)
 endif()
 
 add_compile_definitions(BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED=1)
-find_package(Boost REQUIRED)
+#find_package(Boost REQUIRED)
 include_directories(src ${Boost_INCLUDE_DIRS} ${INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util )
+target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util Boost::boost dl)
 target_include_directories(${PROJECT_NAME} PUBLIC ./ ${INCLUDE_DIRS})
 #target_link_directories(${PROJECT_NAME} PUBLIC ${LIBRARY_DIRS})
 

@@ -66,9 +66,19 @@ public:
     }
 
     template<class TypeBean>
-    void exec_sql(const string& sql, std::function<void(TypeBean&)> func) const
+    void exec_sql(const string& sql, std::function<void(TypeBean&)> callback) const
+    {        
+        return ((TypeBackend*)this)->template exec_sql<TypeBean>(sql, callback);
+    }
+
+    template<class TypeObj>
+    Query<TypeObj, Backend<TypeBackend>> exec(const string& sql, std::function<void(TypeObj& entity)> callback=nullptr) const
     {
-        return ((TypeBackend*)this)->template exec_sql<TypeBean>(sql, func);
+        Query<TypeObj, Backend<TypeBackend>> q;
+        q.db = this;
+        q.sql = sql;
+        q.callback = callback;
+        return q;
     }
 
     template<class type>

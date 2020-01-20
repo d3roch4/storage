@@ -53,11 +53,10 @@ int main()
     print_stacktrace_previous_run_crash();
 
     PostgreSQL db;
-    db.connection("host=localhost dbname=teste user=postgres password=postgres");
+    db.connection("host=localhost dbname=postgres user=postgres password=postgres");
     db.create<Avo>();
     db.create<Pai>();
     db.create<Pessoa>();
-    db.create<Empresa>();
 
     Pessoa pessoa;
     pessoa.nome = "Silva Siqueira";
@@ -98,23 +97,11 @@ int main()
     for(Pessoa& p: vec)
         cout << '+' << p.nome << " tem " << p.idade << " pai: "<<p.parente.id<< " id> " << p.id << std::endl;
 
-    db.exec_sql<Pessoa>("select * from pessoa", [&](Pessoa& p){
+    db.exec<Pessoa>("select * from pessoa", [&](Pessoa& p){
         cout << '*' << p.nome << " tem " << p.idade << " pai: "<<p.parente.id<< " id> " << p.id << std::endl;
-    });
+    }).where().eq("id", 1);
 
 
-    Empresa empresa;
-    empresa.nome = "Corporação Max";
-    empresa.dono = pessoa;
-    empresa.endereco = "Rua de Jesus";
-
-    db.insert(empresa);
-    db.select<Empresa>([](Empresa& emp){
-        cout << emp.nome << ", dono: " << emp.dono.nome <<
-                ", local: " << emp.endereco << endl;
-    });
-
-    db.drop<Empresa>();
     db.drop<Pessoa>();
     db.drop<Pai>();
     db.drop<Avo>();
