@@ -96,6 +96,22 @@ struct Query {
         return *this;
     }
 
+    /**
+     * @brief pe parentheses begin (
+     */
+    Query<TypeEntity, TypeBackend>& pb(){
+        sql += " ( ";
+        return *this;
+    }
+
+    /**
+     * @brief pe parentheses end )
+     */
+    Query<TypeEntity, TypeBackend>& pe(){
+        sql += " ) ";
+        return *this;
+    }
+
     Query<TypeEntity, TypeBackend>& or_(){
         sql += " OR ";
         return *this;

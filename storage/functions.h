@@ -104,31 +104,44 @@ string getSqlSelect()
 }
 
 
+string typeName(const type_info &ti, string& name, Entity* entity);
+
 template<class V, class A>
 struct getTypeDB_s;
 template<class V, class A>
-inline string getTypeDB(const V& val, A& a, const char* name){
+inline string getTypeDB(const V& val, A& a, const char* name, Entity* entity){
     string s{name};
-    return getTypeDB_s<V, A>(val, a, s);
+    return getTypeDB_s<V, A>(val, a, s, entity);
 }
 
 template<class V, class A>
 struct getTypeDB_s{
+    Entity* entity;
     string& name;
     string type;
     const V& val;
     Reference* ref{};
 
-    getTypeDB_s(const V& val, A& a, string& name) :
+    getTypeDB_s(const V& val, A& a, string& name, Entity* entity) :
         val(val),
-        name(name){
+        name(name),
+        entity(entity){
+    }
+
+    template<class T>
+    void verify(const T& field){
+        const type_info &ti = typeid(field);
+        type = typeName(ti, name, entity);
+        if(type.empty()){
+            getTypeObj(field);
+        }
     }
 
     template<class FieldData, class Annotations>
     void operator()(FieldData f, Annotations a, int lenght)
     {
         if(name == f.name()){
-            type = typeName(f.get());
+            verify(f.get());
         }
     }
 
@@ -146,44 +159,14 @@ struct getTypeDB_s{
         }
     }
 
-    template<class T>
-    string typeName(const T& value){
-        const type_info &ti = typeid(T);
-        if(ti == typeid(string))
-            return "text";
-        else if(ti == typeid(int) || ti==typeid(unsigned int))
-            return "int";
-        else if(ti == typeid(char) || ti==typeid(unsigned char))
-            return "char";
-        else if(ti == typeid(long) || ti==typeid(unsigned long))
-            return "bigint";
-        else if(ti == typeid(short) || ti==typeid(unsigned short))
-            return "smallint";
-        else if(ti == typeid(bool))
-            return "bit(1)";
-        else if(ti == typeid(float))
-            return "float";
-        else if(ti == typeid(double))
-            return "float";
-        else if(ti == typeid(std::chrono::time_point<std::chrono::system_clock>))
-            return "TIMESTAMP";
-        else{
-            getTypeObj(value);
-            if(ref){
-                return this->type;
-            }
-        }
-
-        throw_with_trace(runtime_error("getTypeDB: type not implemented for: "+name));
-        return "";
-    }
-
     operator string () {
-        return typeName(val);
+        verify(val);
+        return type;
     }
 };
 
 struct eachCreate{
+    Entity* entity;
     string columns;
     string constraints;
     string references;
@@ -201,7 +184,7 @@ struct eachCreate{
             columns += type->name;
         else{
             const auto& v = f.get();
-            columns += getTypeDB(v, a, name.c_str());
+            columns += getTypeDB(v, a, name.c_str(), entity);
         }
 
         if(((NotNull*) Annotations::get_field(name.c_str())))
@@ -244,7 +227,7 @@ template<class T>
 string sql_create(T& obj){
     Entity* entity = T::annotations::get_entity();
     string sql_create = "CREATE TABLE IF NOT EXISTS "+entity->name+"(\n";
-    eachCreate ec;
+    eachCreate ec{entity};
     reflector::visit_each(obj, ec);
     ec.constraints = ec.constraints.substr(0, ec.constraints.size()-2);
     sql_create += ec.columns;
