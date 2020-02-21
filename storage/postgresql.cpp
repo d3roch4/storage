@@ -65,7 +65,7 @@ void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int
     PQclear(res);
     if(!ok){
         string err = "PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql;
-#if 1//DEBUG
+#if DEBUG
         LOG_ERROR << err << endl;
 #endif
         throw_with_trace( runtime_error(err) );
