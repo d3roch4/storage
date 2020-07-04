@@ -6,7 +6,7 @@
 #include <exception>
 #include <set>
 #include <d3util/datetime.h>
-
+#include <boost/algorithm/string.hpp>
 namespace storage
 {
 using namespace std;
@@ -25,10 +25,18 @@ struct eachputCollumnsSelect
         if(cols.size())
             cols += ", ";
         Entity* ent = a.get_entity();
+        string table;
         if(aliasTable.empty())
-            cols += ent->name+'.'+f.name();
+            table = ent->name;
         else
-            cols += aliasTable+'.'+f.name();
+            table = aliasTable;
+
+        string column = table+'.'+f.name();
+        Select* select = Annotations::get_field(f.name());
+        if(select){
+            cols += boost::replace_all_copy(select->sql, ":COLUMN", column);
+        }else
+            cols += column;
     }
 
     template<class FieldData, class Annotations>
@@ -212,10 +220,10 @@ struct eachCreate{
         Indexed* idx = Annotations::get_field(name.c_str());
         if(idx){
             const string& entity  = ((Entity*)Annotations::get_entity())->name;
-            indexes += "CREATE INDEX IF NOT EXISTS idx_"+entity+'_';
+            indexes += " CREATE INDEX IF NOT EXISTS idx_"+entity+'_';
             indexes += name;
             indexes += " ON "+entity+ 
-                (idx->using_.empty() ? '('+name+");\n" : " USING "+idx->using_);
+                (idx->using_.empty() ? '('+name+");\n" : " USING "+idx->using_)+"; ";
         }
 
         i++;

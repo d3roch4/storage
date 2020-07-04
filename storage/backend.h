@@ -222,14 +222,21 @@ public:
 
             Type* type = f.annotation();
 
-            if(ref && (val.empty() || val =="0"))
+            if(ref && (val.empty() || val =="0")){
                 values += "NULL";
-            else if(type && type->name == "tsvector" && !val.empty())
-                values += val;
-            else{
-                boost::replace_all(val, "'", "''");
-                values += '\'' + val + '\'';
+                return;
+            }else if(type){
+                if(type->name == "GEOGRAPHY(POINT,4326)"){
+                    values += "NULL";
+                    return;
+                }else if(type->name == "tsvector" && !val.empty()){
+                    values += val;
+                    return;
+                }
             }
+
+            boost::replace_all(val, "'", "''");
+            values += '\'' + val + '\'';
         }
     };
 

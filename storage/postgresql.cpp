@@ -38,8 +38,10 @@ string PostgreSQL::exec_sql(const string &sql) const
     string rowsAffected = PQcmdTuples(res);
     PQclear(res);
 
-    if(!ok)
-        throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql) );
+    if(!ok){
+        clog << "ERRO SQL: " << sql << endl;
+        throw_with_trace( runtime_error("PostgreSQL::exec_sql "+string(PQerrorMessage(conn))) );
+    }
 
     return rowsAffected;
 }
@@ -98,6 +100,9 @@ PGconn *PostgreSQL::ConnectionManager::try_get()
 {
     unique_lock<mutex> lock{mtx};
     PGconn* result=0;
+    if(vecConn.empty())
+        throw_with_trace(runtime_error("Não existem coneções"));
+
     for(Connection& conn: vecConn){
         if(conn.in_use == false){
             if(PQstatus(conn.pgconn) != CONNECTION_OK){
