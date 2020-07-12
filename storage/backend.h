@@ -191,6 +191,8 @@ public:
                 sql << f.name() << "=NULL";
             else if(type && type->name == "tsvector" && !val.empty())
                 sql << f.name() << '=' << val;
+            else if(type && type->name == "GEOGRAPHY(POINT,4326)" && val.empty())
+                sql << f.name() << "=NULL";
             else{
                 boost::replace_all(val, "'", "''");
                 sql << f.name() << "=\'" << val << '\'';

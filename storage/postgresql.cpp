@@ -48,7 +48,7 @@ string PostgreSQL::exec_sql(const string &sql) const
 
 void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int, bool&)> callback)
 {
-#if DEBUG
+#if 1//DEBUG
     LOG_DEBUG << sql;
 #endif
     PGconn* conn = connection_.get();
