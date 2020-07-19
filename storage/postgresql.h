@@ -134,6 +134,10 @@ public:
             template<class FieldData, class Annotations>
             auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<is_simple_or_datatime_type<typename FieldData::type>::value>
             {
+                IgnoreStorage* ignoreStorage = Annotations::get_field(f.name());
+                if(ignoreStorage)
+                    return;
+
                 if(ref->field == f.name())
                     sv->putValue(f.get(), lenght);
             }

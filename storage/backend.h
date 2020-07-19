@@ -99,12 +99,25 @@ public:
     }
 
     template<class type>
+    Query<type, Backend<TypeBackend>>& update_cols(type& bean, const std::set<std::string>& colsToSet, Query<type, Backend<TypeBackend>>&& q={}) const
+    {
+        std::stringstream sql;
+        sql << "UPDATE " << ((Entity*)type::annotations::get_entity())->name<< " SET ";
+
+        reflector::visit_each(bean, update_each{sql, colsToSet});
+
+        q.db = this;
+        q.sql = sql.str();
+        return q;
+    }
+
+    template<class type>
     Query<type, Backend<TypeBackend>>& update(type& bean, Query<type, Backend<TypeBackend>>&& q={}) const
     {
         std::stringstream sql;
         sql << "UPDATE " << ((Entity*)type::annotations::get_entity())->name<< " SET ";
 
-        reflector::visit_each(bean, update_each{sql});
+        reflector::visit_each(bean, update_each{sql, {} });
 
         q.db = this;
         q.sql = sql.str();
@@ -169,33 +182,45 @@ public:
 
     struct update_each
     {
-        std::stringstream& sql;
-        update_each(std::stringstream& sql) : sql(sql){}
         int i=0;
+        std::stringstream& sql;
+        const std::set<std::string>& colsToSet;
+        
+        update_each(std::stringstream& sql, const std::set<std::string>& colsToSet) 
+            : sql(sql)
+            , colsToSet(colsToSet) {
+        }
 
         template<class FieldData, class Annotations>
         void operator()(FieldData f, Annotations a, int lenght)
         {
             Reference* ref = f.annotation();
             string val = GetValueStr<typename FieldData::type>{f.get(), ref};
-            if( ((PrimaryKey*)f.annotation())!=nullptr
-                    && (val.empty() || val=="0") )
+            const char* name = f.name();
+
+            if(colsToSet.size() && colsToSet.find(name)==colsToSet.end())
+                return;
+
+            if( ((PrimaryKey*)f.annotation())!=nullptr && (val.empty() || val=="0") )
                 return;
 
             if(i++!=0)
                 sql << ", ";
 
             Type* type = f.annotation();
+            Insert* insert = f.annotation();
 
             if(ref && (val.empty() || val=="0"))
-                sql << f.name() << "=NULL";
+                sql << name << "=NULL";
             else if(type && type->name == "tsvector" && !val.empty())
-                sql << f.name() << '=' << val;
+                sql << name << '=' << val;
             else if(type && type->name == "GEOGRAPHY(POINT,4326)" && val.empty())
-                sql << f.name() << "=NULL";
+                sql << name << "=NULL";
+            else if(insert)
+                sql << name << '=' << insert->converter(val);
             else{
                 boost::replace_all(val, "'", "''");
-                sql << f.name() << "=\'" << val << '\'';
+                sql << name << "=\'" << val << '\'';
             }
         }
     };
@@ -223,12 +248,16 @@ public:
                 values += ", ";
 
             Type* type = f.annotation();
+            Insert* insert = f.annotation();
 
             if(ref && (val.empty() || val =="0")){
                 values += "NULL";
                 return;
+            }else if(insert){
+                values += insert->converter(val);
+                return;
             }else if(type){
-                if(type->name == "GEOGRAPHY(POINT,4326)"){
+                if(type->name == "GEOGRAPHY(POINT,4326)" && val.empty()){
                     values += "NULL";
                     return;
                 }else if(type->name == "tsvector" && !val.empty()){

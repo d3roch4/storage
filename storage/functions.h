@@ -22,6 +22,10 @@ struct eachputCollumnsSelect
     auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<
                     is_simple_or_datatime_type<typename FieldData::type>::value >
     {
+        IgnoreStorage* ignoreStorage = Annotations::get_field(f.name());
+        if(ignoreStorage)
+            return;
+
         if(cols.size())
             cols += ", ";
         Entity* ent = a.get_entity();
@@ -184,6 +188,10 @@ struct eachCreate{
     template<class FieldData, class Annotations>
     void operator()(FieldData f, Annotations a, int lenght)
     {
+        IgnoreStorage* ignoreStorage = Annotations::get_field(f.name());
+        if(ignoreStorage)
+            return;
+
         const string& name = f.name();
         Type* type = Annotations::get_field(name.c_str());
 
