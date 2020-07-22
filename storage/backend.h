@@ -9,6 +9,7 @@
 #include "functions.h"
 #include <mor/mor.h>
 #include <d3util/datetime.h>
+#include <memory>
 
 namespace storage
 {
@@ -36,14 +37,14 @@ bool isNull(std::string str);
 template<typename TypeBackend>
 class Backend
 {
-    static shared_ptr<TypeBackend> instance;
+    static std::shared_ptr<TypeBackend> instance;
 public:
     Backend(){}
 
     static TypeBackend& getInstance()
     {
         if(instance == nullptr){
-            instance = shared_ptr<TypeBackend>(new TypeBackend());
+            instance = std::shared_ptr<TypeBackend>(new TypeBackend());
         }
         return *instance;
     }
@@ -308,7 +309,7 @@ public:
 };
 
 template<typename TypeBackend>
-shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
+std::shared_ptr<TypeBackend> Backend<TypeBackend>::instance;
 }
 #endif // BACKEND_H
 
