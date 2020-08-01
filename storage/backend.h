@@ -13,7 +13,7 @@
 
 namespace storage
 {
-using namespace std;
+//using namespace std;
 
 /*
 bool isPrimaryKey(iannotations* annotations);
