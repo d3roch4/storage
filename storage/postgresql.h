@@ -13,6 +13,7 @@
 #include <d3util/stacktrace.h>
 #include <d3util/logger.h>
 #include <boost/variant.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace storage
 {
@@ -132,7 +133,8 @@ public:
             setValues* sv;
 
             template<class FieldData, class Annotations>
-            auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<is_simple_or_datatime_type<typename FieldData::type>::value>
+            auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<is_simple_or_datatime_type<typename FieldData::type>::value
+                                                                                            || is_container<typename FieldData::type>::value>
             {
                 IgnoreStorage* ignoreStorage = Annotations::get_field(f.name());
                 if(ignoreStorage)
@@ -142,7 +144,8 @@ public:
                     sv->putValue(f.get(), lenght);
             }
             template<class FieldData, class Annotations>
-            auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<typename FieldData::type>::value>
+            auto operator()(FieldData f, Annotations a, int lenght) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<typename FieldData::type>::value
+                                                                                    && !is_container<typename FieldData::type>::value>
             {}
         };
 
@@ -170,12 +173,20 @@ public:
         }
 
         template <class T>
-        auto putValue(T& val, int& lenght) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<T>::value>
+        auto putValue(T& val, int& lenght) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<T>::value 
+                                                                        && !is_container<T>::value>
         {
             if( subset || (nColl <= lenght) )
                 reflector::visit_each(val, setSubField{ref, this});
             else
                 reflector::visit_each(val, *this);
+        }
+
+        template <class T>
+        auto putValue(T& val, int& lenght) noexcept -> std::enable_if_t<is_container<T>::value && !std::is_convertible<T, std::string>::value>
+        {
+            string str = PQgetvalue(res, row, coll++);
+            boost::split(val, str, boost::is_any_of(";")); 
         }
 
         template<class FieldData, class Annotations>

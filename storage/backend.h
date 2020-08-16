@@ -158,11 +158,19 @@ public:
         }
 
         template <class V>
-        auto get(const V& value) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<V>::value>
+        auto get(const V& value) noexcept -> std::enable_if_t<!is_simple_or_datatime_type<V>::value 
+                                                              && !is_container<V>::value>
         {
             if(ref){
                 reflector::visit_each(value, *this);
             }
+        }
+
+        template <class V>
+        auto get(const V& value) noexcept -> std::enable_if_t<is_container<V>::value && !std::is_convertible<V, std::string>::value>
+        {
+            for(auto& v :value)
+                str += (str.size()?";":"") + to_string(v);
         }
 
         template<class FieldData, class Annotations>
