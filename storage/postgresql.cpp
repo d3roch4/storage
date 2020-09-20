@@ -53,20 +53,20 @@ void PostgreSQL::exec_sql(const string &sql, std::function<void (PGresult *, int
 #endif
     PGconn* conn = connection_.get();
     PGresult* res = PQexec(conn, sql.c_str());
-    bool ok = verifyResult(res);
+    string erro = verifyResult(res) ? "" : PQerrorMessage(conn);
     int rows = PQntuples(res);
     connection_.release(conn);
-    if(ok){
+    if(erro.empty()){
         try{
-            callback(res, rows, ok);
+            bool nada;
+            callback(res, rows, nada);
         }catch(const std::exception& ex){
-            PQclear(res);
-            throw_with_trace(ex);
+            erro = "callback exception: "; erro+=ex.what();
         }
     }
     PQclear(res);
-    if(!ok){
-        string err = "PostgreSQL::exec_sql "+string(PQerrorMessage(conn))+"\n\tSQL: "+sql;
+    if(!erro.empty()){
+        string err = "PostgreSQL::exec_sql "+erro+"\n\tSQL: "+sql;
 #if DEBUG
         LOG_ERROR << err << endl;
 #endif
