@@ -45,7 +45,7 @@ add_compile_definitions(BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED=1)
 include_directories(src ${Boost_INCLUDE_DIRS} ${INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} STATIC ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util Boost::boost dl)
+target_link_libraries(${PROJECT_NAME} ${LIBRARIES_FOR_BACKEND} d3util dl)
 target_include_directories(${PROJECT_NAME} PUBLIC ./ ${INCLUDE_DIRS})
 #target_link_directories(${PROJECT_NAME} PUBLIC ${LIBRARY_DIRS})
 
